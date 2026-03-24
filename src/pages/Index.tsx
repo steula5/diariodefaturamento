@@ -76,7 +76,10 @@ const Index = () => {
         return;
       }
       setData(prev => {
-        const merged = mergePedidos(prev.pedidos, pedidos);
+        const dailyReports = prev.pedidos.filter(p => p.isDailyReport);
+        const existingPedidos = prev.pedidos.filter(p => !p.isDailyReport);
+        const mergedPedidos = mergePedidos(existingPedidos, pedidos);
+        const merged = [...mergedPedidos, ...dailyReports];
         return {
           ...prev,
           pedidos: merged,
