@@ -1,3 +1,5 @@
+import type { ReportPeriod } from '@/types/faturamento';
+
 // Brazilian national holidays
 const FIXED_HOLIDAYS: Array<[number, number]> = [
   [1, 1],   // Confraternização Universal
@@ -78,14 +80,15 @@ export function getBusinessDaysInMonth(yearMonth: string): number {
   return count;
 }
 
-export function getRemainingBusinessDays(yearMonth: string): number {
+export function getRemainingBusinessDays(yearMonth: string, reportPeriod: ReportPeriod = 'tarde'): number {
   const [year, month] = yearMonth.split('-').map(Number);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   let count = 0;
   const date = new Date(year, month - 1, 1);
   while (date.getMonth() === month - 1) {
-    if (date > today && isBusinessDay(date)) count++;
+    const isToday = date.getTime() === today.getTime();
+    if (isBusinessDay(date) && (date > today || (reportPeriod === 'manha' && isToday))) count++;
     date.setDate(date.getDate() + 1);
   }
   return count;

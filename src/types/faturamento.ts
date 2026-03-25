@@ -16,11 +16,14 @@ export interface FaturamentoDia {
   pedidos: string[]; // documento IDs
 }
 
+export type ReportPeriod = 'manha' | 'tarde';
+
 export interface DashboardData {
   mes: string; // YYYY-MM
   meta: number;
   pedidos: Pedido[];
   faturamentoDiario: FaturamentoDia[];
+  periodoRelatorio?: ReportPeriod;
   observacoes?: Record<string, string>;
   classificacoes?: Record<string, string>; // 'a' = aprovado mês atual, 'p' = próximo mês
   ordenacaoPedidos?: string[]; // custom order for all pedidos (documento IDs)

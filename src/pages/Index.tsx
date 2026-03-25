@@ -11,10 +11,11 @@ import {
   mergePedidos,
   getCurrentMonth,
   exportToHTML,
+  getDefaultReportPeriod,
 } from '@/lib/dashboard-store';
 import { parseExcelFile } from '@/lib/excel-parser';
 import { parseDailyReport } from '@/lib/daily-report-parser';
-import type { DashboardData, Pedido, FaturamentoDia } from '@/types/faturamento';
+import type { DashboardData, Pedido, FaturamentoDia, ReportPeriod } from '@/types/faturamento';
 import { Download, Upload, Trash2, FileSpreadsheet, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,6 +47,7 @@ const Index = () => {
       meta: 0,
       pedidos: [],
       faturamentoDiario: [],
+      periodoRelatorio: getDefaultReportPeriod(),
     };
   });
 
@@ -164,7 +166,10 @@ const Index = () => {
           toast.error('Arquivo JSON inválido.');
           return;
         }
-        setData(imported);
+        setData({
+          ...imported,
+          periodoRelatorio: imported.periodoRelatorio || getDefaultReportPeriod(),
+        });
         toast.success('Dados importados com sucesso!');
       } catch {
         toast.error('Erro ao importar JSON.');
@@ -180,6 +185,7 @@ const Index = () => {
         meta: 0,
         pedidos: [],
         faturamentoDiario: [],
+        periodoRelatorio: getDefaultReportPeriod(),
         observacoes: {},
         ordenacaoPedidos: [],
       });
@@ -223,6 +229,10 @@ const Index = () => {
 
   const handleMonthChange = useCallback((newMonth: string) => {
     setData(prev => ({ ...prev, mes: newMonth }));
+  }, []);
+
+  const handlePeriodoRelatorioChange = useCallback((periodoRelatorio: ReportPeriod) => {
+    setData(prev => ({ ...prev, periodoRelatorio }));
   }, []);
 
   const [year, month] = data.mes.split('-').map(Number);
@@ -307,7 +317,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-fade-in">
           {/* Left: KPIs */}
           <div className="lg:col-span-2 space-y-4">
-            <KPICards pedidos={data.pedidos} meta={data.meta} onMetaChange={handleMetaChange} mes={data.mes} faturamentoDiario={data.faturamentoDiario} classificacoes={data.classificacoes || {}} />
+            <KPICards pedidos={data.pedidos} meta={data.meta} onMetaChange={handleMetaChange} periodoRelatorio={data.periodoRelatorio || getDefaultReportPeriod()} onPeriodoRelatorioChange={handlePeriodoRelatorioChange} mes={data.mes} faturamentoDiario={data.faturamentoDiario} classificacoes={data.classificacoes || {}} />
             
             <DailySalesChart faturamentoDiario={data.faturamentoDiario} mes={data.mes} />
           </div>

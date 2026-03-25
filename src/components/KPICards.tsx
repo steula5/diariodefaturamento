@@ -1,6 +1,7 @@
 import { formatCurrency, getClassification } from '@/lib/dashboard-store';
 import { getBusinessDaysInMonth, getRemainingBusinessDays } from '@/lib/holidays';
-import type { Pedido, FaturamentoDia } from '@/types/faturamento';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Pedido, FaturamentoDia, ReportPeriod } from '@/types/faturamento';
 import { Target, Package, CalendarDays, BarChart3, Clock, DollarSign, ArrowRight } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -8,12 +9,23 @@ interface KPICardsProps {
   pedidos: Pedido[];
   meta: number;
   onMetaChange: (meta: number) => void;
+  periodoRelatorio: ReportPeriod;
+  onPeriodoRelatorioChange: (periodo: ReportPeriod) => void;
   mes: string;
   faturamentoDiario: FaturamentoDia[];
   classificacoes: Record<string, string>;
 }
 
-export function KPICards({ pedidos, meta, onMetaChange, mes, faturamentoDiario, classificacoes }: KPICardsProps) {
+export function KPICards({
+  pedidos,
+  meta,
+  onMetaChange,
+  periodoRelatorio,
+  onPeriodoRelatorioChange,
+  mes,
+  faturamentoDiario,
+  classificacoes,
+}: KPICardsProps) {
   const [year, month] = mes.split('-').map(Number);
 
   const realPedidos = pedidos.filter(p => !p.isDailyReport);
@@ -70,15 +82,33 @@ export function KPICards({ pedidos, meta, onMetaChange, mes, faturamentoDiario, 
   const pctFatMeta = meta > 0 ? ((totalFaturamento - meta) / meta) * 100 : 0;
 
   // Dias úteis
-  const diasUteisFaltantes = getRemainingBusinessDays(mes);
+  const diasUteisFaltantes = getRemainingBusinessDays(mes, periodoRelatorio);
 
   // Objetivo diário
-  // +1 because report is always from the previous day's billing
-  const diasParaObjetivo = diasUteisFaltantes + 1;
+  const diasParaObjetivo = diasUteisFaltantes;
   const objetivoDiario = diasParaObjetivo > 0 ? (meta - totalFaturamento) / diasParaObjetivo : 0;
 
   return (
     <div className="space-y-3">
+      <div className="kpi-card">
+        <div className="flex items-center gap-2 mb-2">
+          <Clock className="w-4 h-4 text-warning" />
+          <span className="kpi-label">Período do Relatório</span>
+        </div>
+        <Select value={periodoRelatorio} onValueChange={(value) => onPeriodoRelatorioChange(value as ReportPeriod)}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Selecione o período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="manha">Manhã</SelectItem>
+            <SelectItem value="tarde">Tarde</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="text-[10px] text-muted-foreground mt-2">
+          {periodoRelatorio === 'manha' ? 'Inclui o dia útil de hoje na contagem.' : 'Conta apenas os próximos dias úteis.'}
+        </div>
+      </div>
+
       {/* 1 - Meta */}
       <div className="kpi-card">
         <div className="flex items-center gap-2 mb-2">
@@ -151,7 +181,7 @@ export function KPICards({ pedidos, meta, onMetaChange, mes, faturamentoDiario, 
         </div>
         <div className="kpi-value text-warning">{formatCurrency(Math.max(0, objetivoDiario))}</div>
         <div className="text-[10px] text-muted-foreground mt-1">
-          {diasParaObjetivo} dias úteis restantes (+1)
+          {diasParaObjetivo} dias úteis restantes
         </div>
       </div>
 

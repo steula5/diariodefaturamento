@@ -1,4 +1,4 @@
-import type { DashboardData, Pedido } from '@/types/faturamento';
+import type { DashboardData, Pedido, ReportPeriod } from '@/types/faturamento';
 import { getBusinessDaysInMonth, getRemainingBusinessDays } from '@/lib/holidays';
 
 const STORAGE_KEY = 'faturamento_dashboard';
@@ -13,11 +13,22 @@ export function getClassification(clasificacao: string): 'a' | 'p' {
   return result;
 }
 
+export function getDefaultReportPeriod(date = new Date()): ReportPeriod {
+  return date.getHours() < 12 ? 'manha' : 'tarde';
+}
+
+function normalizeDashboardData(data: DashboardData): DashboardData {
+  return {
+    ...data,
+    periodoRelatorio: data.periodoRelatorio || getDefaultReportPeriod(),
+  };
+}
+
 export function loadDashboardData(): DashboardData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    return normalizeDashboardData(JSON.parse(raw) as DashboardData);
   } catch {
     return null;
   }
@@ -49,6 +60,8 @@ export function exportToHTML(data: DashboardData): void {
 }
 
 function generateStandaloneHTML(data: DashboardData): string {
+  const periodoRelatorio = data.periodoRelatorio || getDefaultReportPeriod();
+  const periodoRelatorioLabel = periodoRelatorio === 'manha' ? 'Manhã' : 'Tarde';
   const [year, month] = data.mes.split('-').map(Number);
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -72,7 +85,7 @@ function generateStandaloneHTML(data: DashboardData): string {
   const mediaDiaria = diasComFat > 0 ? totalFaturamento / diasComFat : 0;
   const diasUteisMes = getBusinessDaysInMonth(data.mes);
   const projecao = mediaDiaria * diasUteisMes;
-  const diasUteisFaltantes = getRemainingBusinessDays(data.mes) + 1;
+  const diasUteisFaltantes = getRemainingBusinessDays(data.mes, periodoRelatorio);
   const objetivoDiario = diasUteisFaltantes > 0 ? (data.meta - totalFaturamento) / diasUteisFaltantes : 0;
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -160,14 +173,15 @@ tr:hover{background:#f8fafc}
 <body>
 <div class="container">
 <h1>Diário de Faturamento</h1>
-<p class="subtitle">${monthNames[month - 1]} ${year} — Relatório Gerencial</p>
+<p class="subtitle">${monthNames[month - 1]} ${year} — Relatório Gerencial (${periodoRelatorioLabel})</p>
 
 <div class="grid grid-kpi">
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><div class="card-value text-primary">${fmt(data.meta)}</div></div>` : ''}
+<div class="card"><div class="card-label">Período do Relatório</div><div class="card-value">${periodoRelatorioLabel}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${periodoRelatorio === 'manha' ? 'Inclui o dia útil de hoje' : 'Considera apenas os próximos dias úteis'}</div></div>
 <div class="card border-l-accent"><div class="card-label">Despacho Aprovado</div><div class="card-value text-primary">${fmt(totalDespacho)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosMesAtual.length} pedidos</div></div>
 <div class="card border-l-warning" style="background:#fffbeb"><div class="card-label">Próximos Despachos</div><div class="card-value text-warning">${fmt(totalProximoMes)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosProximoMes.length} pedidos</div></div>
 <div class="card border-l-success"><div class="card-label">Faturamento</div><div class="card-value text-success">${fmt(totalFaturamento)}</div></div>
-${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes (+1)</div></div>` : ''}
+${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes</div></div>` : ''}
 <div class="card"><div class="card-label">Dias Úteis</div><div class="card-value text-info">${diasUteisMes}</div></div>
 <div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div class="card-value text-warning">${diasUteisFaltantes}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
 <div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div class="card-value text-info" style="font-size:.9rem;line-height:1.3">${fmt(projecao)}</div>${diasComFat > 0 ? `<div style="font-size:.7rem;color:#64748b;margin-top:2px">Média: ${fmt(mediaDiaria)} × ${diasUteisMes} dias</div>` : ''}</div>
