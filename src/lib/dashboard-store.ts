@@ -181,6 +181,7 @@ tr:hover{background:#f8fafc}
 .chart-label{font-size:10px;fill:#64748b}
 .chart-value{font-size:10px;fill:#334155}
 .chart-trend-summary{margin-top:8px;font-size:.72rem;color:#475569;font-weight:600}
+.chart-trend-summary .trend-meta{font-weight:500;color:#64748b;margin-left:6px}
 .chart-tip{position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;pointer-events:none;display:none;z-index:100;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .chart-tip.vis{display:block}
 @media(max-width:768px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}.card-value{font-size:.9rem}}
@@ -344,6 +345,7 @@ function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 var trendClass='flat';
 var trendLabel='estável';
 var trendPath='';
+var trendMeta='';
 if(points.length>=2){
   var n=points.length;
   var sumX=0,sumY=0,sumXY=0,sumXX=0;
@@ -359,21 +361,48 @@ if(points.length>=2){
 
   var startVal=intercept;
   var endVal=(slope*(n-1))+intercept;
-  var startY=yAt(clamp(startVal,0,maxVal));
-  var endY=yAt(clamp(endVal,0,maxVal));
+  var startYRaw=yAt(clamp(startVal,0,maxVal));
+  var endYRaw=yAt(clamp(endVal,0,maxVal));
+
+  // Em dados muito estáveis, amplifica visualmente a linha para facilitar leitura de direção.
+  var pxDelta=Math.abs(endYRaw-startYRaw);
+  var minVisibleDeltaPx=14;
+  var startY=startYRaw;
+  var endY=endYRaw;
+  var ampFactor=1;
+  if(pxDelta<minVisibleDeltaPx){
+    var midY=(startYRaw+endYRaw)/2;
+    ampFactor=Math.min(minVisibleDeltaPx/Math.max(pxDelta,0.5),10);
+    startY=clamp(midY+((startYRaw-midY)*ampFactor),top,top+chartH);
+    endY=clamp(midY+((endYRaw-midY)*ampFactor),top,top+chartH);
+  }
   trendPath='M '+xAt(0)+' '+startY+' L '+xAt(n-1)+' '+endY;
 
-  var trendThreshold=Math.max(maxVal*0.01,500);
-  if(slope>trendThreshold){
+  var avgVal=sumY/n;
+  var slopePctPerDay=avgVal>0?(slope/avgVal)*100:0;
+  var deltaPct=avgVal>0?((endVal-startVal)/avgVal)*100:0;
+
+  var strongThreshold=0.12;
+  var lightThreshold=0.03;
+  if(slopePctPerDay>strongThreshold){
     trendClass='up';
     trendLabel='subindo';
-  } else if(slope<-trendThreshold){
+  } else if(slopePctPerDay<-strongThreshold){
     trendClass='down';
     trendLabel='descendo';
+  } else if(slopePctPerDay>lightThreshold){
+    trendClass='up';
+    trendLabel='leve alta';
+  } else if(slopePctPerDay<-lightThreshold){
+    trendClass='down';
+    trendLabel='leve queda';
   }
+
+  var ampText=ampFactor>1.01?' | linha ampliada '+ampFactor.toFixed(1)+'x':'';
+  trendMeta='(inclinação '+slopePctPerDay.toFixed(3).replace('.',',')+'%/dia útil | variação '+deltaPct.toFixed(2).replace('.',',')+'%'+ampText+')';
 }
 if(trendSummary){
-  trendSummary.textContent='Tendência do período: '+trendLabel+'.';
+  trendSummary.innerHTML='Tendência do período: <strong>'+trendLabel+'</strong>. <span class="trend-meta">'+trendMeta+'</span>';
 }
 
 var yTicks=4;
