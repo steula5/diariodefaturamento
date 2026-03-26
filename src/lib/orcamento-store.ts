@@ -311,7 +311,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
   const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido);
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = orcamentosNaoConvertidos.reduce((s, o) => s + o.valor, 0);
-  const totalConvertidos = orcamentosComStatus.filter(o => o.convertido).reduce((s, o) => s + o.valor, 0);
+  const orcamentosConvertidos = orcamentosComStatus.filter(o => o.convertido);
+  const totalConvertidos = orcamentosConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
   const htmlContent = `
@@ -347,30 +348,36 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
         <div class="card">
           <h3>Total de Orçamentos</h3>
           <div class="value">${formatCurrency(totalOrcamentos)}</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosComStatus.length} orçamentos</p>
         </div>
         <div class="card">
           <h3>Convertidos</h3>
           <div class="value" style="color: #22c55e;">${formatCurrency(totalConvertidos)}</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosConvertidos.length} orçamentos</p>
         </div>
         <div class="card">
           <h3>Não Convertidos</h3>
           <div class="value" style="color: #ef4444;">${formatCurrency(totalNaoConvertidos)}</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosNaoConvertidos.length} orçamentos</p>
         </div>
         <div class="card">
           <h3>Taxa de Conversão</h3>
           <div class="value" style="color: #22c55e;">${taxaConversao.toFixed(1)}%</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosComStatus.filter(o=>o.convertido).length} de ${orcamentosComStatus.length} convertidos</p>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosConvertidos.length} de ${orcamentosComStatus.length} convertidos</p>
         </div>
       </div>
 
       <h2>Orçamentos Não Convertidos (${orcamentosNaoConvertidos.length})</h2>
+      ${orcamentosNaoConvertidos.length > 0 ? `
       <table>
         <thead>
           <tr>
             <th>Documento</th>
             <th>Cliente</th>
+            <th>Cidade</th>
             <th>Data</th>
             <th>Valor</th>
+            <th>Virou Pedido</th>
           </tr>
         </thead>
         <tbody>
@@ -378,12 +385,15 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
             <tr>
               <td>${o.documento}</td>
               <td>${o.cliente}</td>
+              <td>${o.cidade}</td>
               <td>${o.dataEmissao}</td>
               <td style="text-align: right;">${formatCurrency(o.valor)}</td>
+              <td style="text-align: center; color: #ef4444; font-weight: bold;">Não</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+      ` : '<p style="font-size: 12px; color: #666;">Todos os orçamentos foram convertidos em pedidos.</p>'}
 
       <h2 style="margin-top: 30px;">Todos os Orçamentos (${orcamentosComStatus.length})</h2>
       <table>
@@ -391,9 +401,11 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
           <tr>
             <th>Documento</th>
             <th>Cliente</th>
+            <th>Cidade</th>
             <th>Data</th>
             <th>Valor</th>
             <th>Convertido</th>
+            <th>Nº Pedido</th>
           </tr>
         </thead>
         <tbody>
@@ -401,9 +413,11 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
             <tr>
               <td>${o.documento}</td>
               <td>${o.cliente}</td>
+              <td>${o.cidade}</td>
               <td>${o.dataEmissao}</td>
               <td style="text-align: right;">${formatCurrency(o.valor)}</td>
               <td>${o.convertido ? 'Sim' : 'Não'}</td>
+              <td>${o.virou_pedido || ''}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -415,5 +429,17 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
   const blob = new Blob([htmlContent], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const printWindow = window.open(url, '_blank');
-  if (printWindow) printWindow.print();
+  if (printWindow) {
+    const cleanup = () => URL.revokeObjectURL(url);
+
+    printWindow.addEventListener('load', () => {
+      printWindow.focus();
+      printWindow.print();
+    }, { once: true });
+
+    printWindow.addEventListener('afterprint', cleanup, { once: true });
+    printWindow.addEventListener('beforeunload', cleanup, { once: true });
+  } else {
+    URL.revokeObjectURL(url);
+  }
 }
