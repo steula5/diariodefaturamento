@@ -244,7 +244,6 @@ ${e.meta>0?`<div class="card"><div class="card-label">Meta do Mês</div><div cla
 <div class="card border-l-warning" style="background:#fffbeb"><div class="card-label">Próximos Despachos</div><div class="card-value text-warning">${T(p)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${u.length} pedidos</div></div>
 <div class="card border-l-success"><div class="card-label">Faturamento</div><div class="card-value text-success">${T(v)}</div></div>
 ${e.meta>0?`<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${T(Math.max(0,E))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${m} dias úteis restantes</div></div>`:""}
-<div class="card"><div class="card-label">Dias Úteis</div><div class="card-value text-info">${y}</div></div>
 <div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div class="card-value text-warning">${m}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
 <div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div class="card-value text-info" style="font-size:.9rem;line-height:1.3">${T(g)}</div>${d>0?`<div style="font-size:.7rem;color:#64748b;margin-top:2px">Média: ${T(x)} × ${y} dias</div>`:""}</div>
 </div>
