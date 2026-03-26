@@ -177,7 +177,6 @@ tr:hover{background:#f8fafc}
 
 <div class="grid grid-kpi">
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><div class="card-value text-primary">${fmt(data.meta)}</div></div>` : ''}
-<div class="card"><div class="card-label">Período do Relatório</div><div class="card-value">${periodoRelatorioLabel}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${periodoRelatorio === 'manha' ? 'Inclui o dia útil de hoje' : 'Considera apenas os próximos dias úteis'}</div></div>
 <div class="card border-l-accent"><div class="card-label">Despacho Aprovado</div><div class="card-value text-primary">${fmt(totalDespacho)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosMesAtual.length} pedidos</div></div>
 <div class="card border-l-warning" style="background:#fffbeb"><div class="card-label">Próximos Despachos</div><div class="card-value text-warning">${fmt(totalProximoMes)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosProximoMes.length} pedidos</div></div>
 <div class="card border-l-success"><div class="card-label">Faturamento</div><div class="card-value text-success">${fmt(totalFaturamento)}</div></div>
