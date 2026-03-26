@@ -166,8 +166,8 @@ const Orcamento = () => {
   const totalNaoConvertidos = naoConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
-  const oportunidadesAbertas = data.orcamentos.filter(o => o.no_sistema === true);
-  const oportunidadesPerdidas = data.orcamentos.filter(o => !o.no_sistema);
+  const oportunidadesAbertas = data.orcamentos.filter(o => o.no_sistema === true && !isConvertido(o));
+  const oportunidadesPerdidas = data.orcamentos.filter(o => !o.no_sistema && !isConvertido(o));
   const totalAbertas = oportunidadesAbertas.reduce((s, o) => s + o.valor, 0);
   const totalPerdidas = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
 

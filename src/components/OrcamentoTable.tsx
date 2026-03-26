@@ -194,7 +194,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Virou Pedido <SortIcon field="virou_pedido" />
                 </div>
               </th>
-              <th className="px-4 py-2 text-center">Status</th>
+              <th className="px-4 py-2 text-center">Ativid. Sistema</th>
             </tr>
           </thead>
           <tbody>
