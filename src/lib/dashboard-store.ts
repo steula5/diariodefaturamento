@@ -181,7 +181,6 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><
 <div class="card border-l-warning" style="background:#fffbeb"><div class="card-label">Próximos Despachos</div><div class="card-value text-warning">${fmt(totalProximoMes)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosProximoMes.length} pedidos</div></div>
 <div class="card border-l-success"><div class="card-label">Faturamento</div><div class="card-value text-success">${fmt(totalFaturamento)}</div></div>
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes</div></div>` : ''}
-<div class="card"><div class="card-label">Dias Úteis</div><div class="card-value text-info">${diasUteisMes}</div></div>
 <div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div class="card-value text-warning">${diasUteisFaltantes}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
 <div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div class="card-value text-info" style="font-size:.9rem;line-height:1.3">${fmt(projecao)}</div>${diasComFat > 0 ? `<div style="font-size:.7rem;color:#64748b;margin-top:2px">Média: ${fmt(mediaDiaria)} × ${diasUteisMes} dias</div>` : ''}</div>
 </div>
