@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { KPICards } from '@/components/KPICards';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { OrdersTable } from '@/components/OrdersTable';
@@ -244,13 +245,29 @@ const Index = () => {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="max-w-[1600px] mx-auto px-4 py-4 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-lg font-bold text-foreground tracking-tight">
-              Diário de Faturamento
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {monthNames[month - 1]} {year} — Painel Gerencial
-            </p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-lg font-bold text-foreground tracking-tight">
+                Diário de Faturamento
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {monthNames[month - 1]} {year} — Painel Gerencial
+              </p>
+            </div>
+            <nav className="flex items-center gap-2 pl-6 border-l border-border">
+              <Link 
+                to="/" 
+                className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+              >
+                Faturamento
+              </Link>
+              <Link 
+                to="/orcamento" 
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Orçamentos
+              </Link>
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             <input

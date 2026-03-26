@@ -28,3 +28,32 @@ export interface DashboardData {
   classificacoes?: Record<string, string>; // 'a' = aprovado mês atual, 'p' = próximo mês
   ordenacaoPedidos?: string[]; // custom order for all pedidos (documento IDs)
 }
+
+// Orçamento types
+export interface Orcamento {
+  documento: string;
+  cliente: string;
+  cidade: string;
+  dataEmissao: string;
+  dataCalendario?: string; // DD/MM/YYYY - date for calendar display (upload day)
+  valor: number;
+  codStatus: number;
+  status: string;
+  isDailyReport?: boolean; // true for synthetic daily report entries
+  virou_pedido?: boolean; // true if this quote became a purchase order
+}
+
+export interface OrcamentoDia {
+  data: string; // YYYY-MM-DD
+  valor: number;
+  orcamentos: string[]; // documento IDs
+  virou_pedido: number; // count of orcamentos that became pedidos
+}
+
+export interface OrcamentoData {
+  mes: string; // YYYY-MM
+  orcamentos: Orcamento[];
+  orcamentoDiario: OrcamentoDia[];
+  observacoes?: Record<string, string>;
+  ordenacaoOrcamentos?: string[]; // custom order for all orcamentos (documento IDs)
+}
