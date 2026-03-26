@@ -309,8 +309,9 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
   }));
 
   const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido);
+  const oportunidadesPerdidas = orcamentosComStatus.filter(o => !o.no_sistema && !o.convertido);
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
-  const totalNaoConvertidos = orcamentosNaoConvertidos.reduce((s, o) => s + o.valor, 0);
+  const totalNaoConvertidos = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
   const orcamentosConvertidos = orcamentosComStatus.filter(o => o.convertido);
   const totalConvertidos = orcamentosConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
@@ -358,7 +359,7 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
         <div class="card">
           <h3>Não Convertidos</h3>
           <div class="value" style="color: #ef4444;">${formatCurrency(totalNaoConvertidos)}</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosNaoConvertidos.length} orçamentos</p>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${oportunidadesPerdidas.length} orçamentos inativos</p>
         </div>
         <div class="card">
           <h3>Taxa de Conversão</h3>
@@ -367,8 +368,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
         </div>
       </div>
 
-      <h2>Orçamentos Não Convertidos (${orcamentosNaoConvertidos.length})</h2>
-      ${orcamentosNaoConvertidos.length > 0 ? `
+      <h2>Orçamentos Não Convertidos - Inativos (${oportunidadesPerdidas.length})</h2>
+      ${oportunidadesPerdidas.length > 0 ? `
       <table>
         <thead>
           <tr>
@@ -381,7 +382,7 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
           </tr>
         </thead>
         <tbody>
-          ${orcamentosNaoConvertidos.map(o => `
+          ${oportunidadesPerdidas.map(o => `
             <tr>
               <td>${o.documento}</td>
               <td>${o.cliente}</td>
