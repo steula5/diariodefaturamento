@@ -167,6 +167,15 @@ tr:hover{background:#f8fafc}
 .obs-col{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-totals{margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0}
 .cal-totals .row{margin-bottom:8px}
+.chart-wrap{width:100%;overflow-x:auto}
+.chart-svg{width:100%;height:220px;display:block}
+.chart-axis{stroke:#cbd5e1;stroke-width:1}
+.chart-grid{stroke:#e2e8f0;stroke-width:1;stroke-dasharray:3 3}
+.chart-line{fill:none;stroke:#2563eb;stroke-width:3}
+.chart-area{fill:rgba(37,99,235,.14)}
+.chart-dot{fill:#2563eb}
+.chart-label{font-size:10px;fill:#64748b}
+.chart-value{font-size:10px;fill:#334155}
 @media(max-width:768px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}.card-value{font-size:.9rem}}
 </style>
 </head>
@@ -183,6 +192,13 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes</div></div>` : ''}
 <div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div class="card-value text-warning">${diasUteisFaltantes}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
 <div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div class="card-value text-info" style="font-size:.9rem;line-height:1.3">${fmt(projecao)}</div>${diasComFat > 0 ? `<div style="font-size:.7rem;color:#64748b;margin-top:2px">Média: ${fmt(mediaDiaria)} × ${diasUteisMes} dias</div>` : ''}</div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+<div class="card-label">Evolução Diária de Vendas</div>
+<div class="chart-wrap">
+<svg id="daily-sales-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+</div>
 </div>
 
 <div class="grid grid-main">
@@ -256,7 +272,96 @@ detail.innerHTML='<div class="day-title">Dia '+d+'/${month}/${year}</div><div cl
 detail.className='day-detail visible';
 }
 
+function renderDailySalesChart(){
+var svg=document.getElementById('daily-sales-chart');
+if(!svg) return;
+
+var yr=${year},mo=${month};
+var now=new Date();
+var isCurrentMonth=now.getFullYear()===yr && (now.getMonth()+1)===mo;
+var cutoffDate=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+var lastDay=new Date(yr,mo,0).getDate();
+
+var fatMap=new Map();
+fatDiario.forEach(function(f){
+  var p=f.data.split('-').map(Number);
+  if(p[0]===yr && p[1]===mo) fatMap.set(p[2],f.valor);
+});
+
+var points=[];
+for(var d=1;d<=lastDay;d++){
+  var dt=new Date(yr,mo-1,d);
+  var wk=dt.getDay();
+  if(wk===0||wk===6) continue;
+  if(isCurrentMonth && dt>cutoffDate) continue;
+  points.push({ day:d, value:fatMap.get(d)||0 });
+}
+
+if(points.length===0){
+  svg.innerHTML='<text x="500" y="110" text-anchor="middle" class="chart-label">Sem dias úteis para exibir no período</text>';
+  return;
+}
+
+var maxVal=1;
+points.forEach(function(p){if(p.value>maxVal)maxVal=p.value;});
+
+var left=48,right=20,top=16,bottom=28;
+var w=1000,h=220;
+var chartW=w-left-right,chartH=h-top-bottom;
+
+function xAt(i){
+  if(points.length===1) return left+chartW/2;
+  return left+(i*(chartW/(points.length-1)));
+}
+function yAt(v){
+  return top+((maxVal-v)/maxVal)*chartH;
+}
+
+var yTicks=4;
+var grid='';
+for(var t=0;t<=yTicks;t++){
+  var y=top+(t*(chartH/yTicks));
+  var val=maxVal-(t*(maxVal/yTicks));
+  grid+='<line x1="'+left+'" y1="'+y+'" x2="'+(w-right)+'" y2="'+y+'" class="chart-grid" />';
+  grid+='<text x="'+(left-8)+'" y="'+(y+3)+'" text-anchor="end" class="chart-label">'+(val===0?'0':Math.round(val/1000)+'k')+'</text>';
+}
+
+var linePath='';
+var areaPath='M '+xAt(0)+' '+(top+chartH)+' ';
+points.forEach(function(p,i){
+  var x=xAt(i),y=yAt(p.value);
+  linePath+=(i===0?'M ':' L ')+x+' '+y;
+  areaPath+='L '+x+' '+y+' ';
+});
+areaPath+='L '+xAt(points.length-1)+' '+(top+chartH)+' Z';
+
+var xLabels='';
+points.forEach(function(p,i){
+  if(i%3===0 || i===points.length-1){
+    var x=xAt(i);
+    xLabels+='<text x="'+x+'" y="'+(h-8)+'" text-anchor="middle" class="chart-label">'+p.day+'</text>';
+  }
+});
+
+var dots='';
+points.forEach(function(p,i){
+  if(p.value>0){
+    var x=xAt(i),y=yAt(p.value);
+    dots+='<circle cx="'+x+'" cy="'+y+'" r="2.8" class="chart-dot"><title>Dia '+p.day+': '+fmt(p.value)+'</title></circle>';
+  }
+});
+
+svg.innerHTML=''
+  +'<line x1="'+left+'" y1="'+(top+chartH)+'" x2="'+(w-right)+'" y2="'+(top+chartH)+'" class="chart-axis" />'
+  +grid
+  +'<path d="'+areaPath+'" class="chart-area" />'
+  +'<path d="'+linePath+'" class="chart-line" />'
+  +dots
+  +xLabels;
+}
+
 renderCalendar();
+renderDailySalesChart();
 </script>
 </body>
 </html>`;
