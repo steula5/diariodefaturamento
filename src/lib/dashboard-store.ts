@@ -176,6 +176,8 @@ tr:hover{background:#f8fafc}
 .chart-dot{fill:#2563eb}
 .chart-label{font-size:10px;fill:#64748b}
 .chart-value{font-size:10px;fill:#334155}
+.chart-tip{position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;pointer-events:none;display:none;z-index:100;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.chart-tip.vis{display:block}
 @media(max-width:768px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}.card-value{font-size:.9rem}}
 </style>
 </head>
@@ -197,6 +199,7 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <div class="card" style="margin-bottom:20px">
 <div class="card-label">Evolução Diária de Vendas</div>
 <div class="chart-wrap">
+<div id="chart-tip" class="chart-tip"></div>
 <svg id="daily-sales-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
 </div>
 </div>
@@ -226,6 +229,11 @@ var fatDiario=${fatDiarioJSON};
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 var selectedDay=null;
+var tipLabels=[];
+var tip=null;
+function showTip(e,label){if(!tip)tip=document.getElementById('chart-tip');tip.textContent=label;tip.className='chart-tip vis';moveTip(e)}
+function moveTip(e){var x=e.clientX+14,y=e.clientY-42;if(x+260>window.innerWidth)x=e.clientX-260;tip.style.left=x+'px';tip.style.top=y+'px'}
+function hideTip(){if(tip)tip.className='chart-tip'}
 
 function renderCalendar(){
 var cal=document.getElementById('calendar');
@@ -277,10 +285,19 @@ var svg=document.getElementById('daily-sales-chart');
 if(!svg) return;
 
 var yr=${year},mo=${month};
+var periodo='${periodoRelatorio}';
 var now=new Date();
 var isCurrentMonth=now.getFullYear()===yr && (now.getMonth()+1)===mo;
-var cutoffDate=new Date(now.getFullYear(),now.getMonth(),now.getDate());
 var lastDay=new Date(yr,mo,0).getDate();
+
+// manha: exclui hoje (dados incompletos); tarde: inclui hoje
+var cutoffDate;
+if(isCurrentMonth){
+  var td=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  cutoffDate=periodo==='manha'?new Date(td.getTime()-86400000):td;
+} else {
+  cutoffDate=new Date(yr,mo,0);
+}
 
 var fatMap=new Map();
 fatDiario.forEach(function(f){
@@ -293,8 +310,8 @@ for(var d=1;d<=lastDay;d++){
   var dt=new Date(yr,mo-1,d);
   var wk=dt.getDay();
   if(wk===0||wk===6) continue;
-  if(isCurrentMonth && dt>cutoffDate) continue;
-  points.push({ day:d, value:fatMap.get(d)||0 });
+  if(dt>cutoffDate) continue;
+  points.push({day:d,value:fatMap.get(d)||0});
 }
 
 if(points.length===0){
@@ -305,7 +322,7 @@ if(points.length===0){
 var maxVal=1;
 points.forEach(function(p){if(p.value>maxVal)maxVal=p.value;});
 
-var left=48,right=20,top=16,bottom=28;
+var left=52,right=20,top=16,bottom=28;
 var w=1000,h=220;
 var chartW=w-left-right,chartH=h-top-bottom;
 
@@ -313,21 +330,18 @@ function xAt(i){
   if(points.length===1) return left+chartW/2;
   return left+(i*(chartW/(points.length-1)));
 }
-function yAt(v){
-  return top+((maxVal-v)/maxVal)*chartH;
-}
+function yAt(v){return top+((maxVal-v)/maxVal)*chartH;}
 
 var yTicks=4;
 var grid='';
 for(var t=0;t<=yTicks;t++){
-  var y=top+(t*(chartH/yTicks));
-  var val=maxVal-(t*(maxVal/yTicks));
-  grid+='<line x1="'+left+'" y1="'+y+'" x2="'+(w-right)+'" y2="'+y+'" class="chart-grid" />';
-  grid+='<text x="'+(left-8)+'" y="'+(y+3)+'" text-anchor="end" class="chart-label">'+(val===0?'0':Math.round(val/1000)+'k')+'</text>';
+  var yg=top+(t*(chartH/yTicks));
+  var vg=maxVal-(t*(maxVal/yTicks));
+  grid+='<line x1="'+left+'" y1="'+yg+'" x2="'+(w-right)+'" y2="'+yg+'" class="chart-grid" />';
+  grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'k')+'</text>';
 }
 
-var linePath='';
-var areaPath='M '+xAt(0)+' '+(top+chartH)+' ';
+var linePath='',areaPath='M '+xAt(0)+' '+(top+chartH)+' ';
 points.forEach(function(p,i){
   var x=xAt(i),y=yAt(p.value);
   linePath+=(i===0?'M ':' L ')+x+' '+y;
@@ -335,20 +349,19 @@ points.forEach(function(p,i){
 });
 areaPath+='L '+xAt(points.length-1)+' '+(top+chartH)+' Z';
 
-var xLabels='';
-points.forEach(function(p,i){
-  if(i%3===0 || i===points.length-1){
-    var x=xAt(i);
-    xLabels+='<text x="'+x+'" y="'+(h-8)+'" text-anchor="middle" class="chart-label">'+p.day+'</text>';
-  }
+tipLabels=[];
+points.forEach(function(p){
+  tipLabels.push('Dia '+p.day+(p.value>0?' — '+fmt(p.value):' — Sem faturamento'));
 });
 
-var dots='';
+var hitZones='',xLabels='';
 points.forEach(function(p,i){
-  if(p.value>0){
-    var x=xAt(i),y=yAt(p.value);
-    dots+='<circle cx="'+x+'" cy="'+y+'" r="2.8" class="chart-dot"><title>Dia '+p.day+': '+fmt(p.value)+'</title></circle>';
-  }
+  var x=xAt(i);
+  var x1=i===0?left:(xAt(i-1)+x)/2;
+  var x2=i===points.length-1?(w-right):(x+xAt(i+1))/2;
+  hitZones+='<rect x="'+x1+'" y="'+top+'" width="'+(x2-x1)+'" height="'+chartH+'" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,tipLabels['+i+'])" onmouseout="hideTip()" />';
+  if(p.value>0) hitZones+='<circle cx="'+x+'" cy="'+yAt(p.value)+'" r="3.5" class="chart-dot" style="pointer-events:none" />';
+  xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" class="chart-label">'+p.day+'</text>';
 });
 
 svg.innerHTML=''
@@ -356,7 +369,7 @@ svg.innerHTML=''
   +grid
   +'<path d="'+areaPath+'" class="chart-area" />'
   +'<path d="'+linePath+'" class="chart-line" />'
-  +dots
+  +hitZones
   +xLabels;
 }
 
