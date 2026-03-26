@@ -218,7 +218,7 @@ const Orcamento = () => {
         </div>
 
         {/* Cards de Oportunidade — baseados no Status */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 gap-3 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-emerald-500">
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
@@ -226,14 +226,6 @@ const Orcamento = () => {
             </div>
             <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalAbertas)}</div>
             <div className="text-xs text-gray-500 mt-1">{oportunidadesAbertas.length} orçamentos com status Ativo</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-gray-400">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
-              <div className="text-sm font-semibold text-gray-700">Oportunidades Perdidas</div>
-            </div>
-            <div className="text-2xl font-bold text-gray-500">{formatCurrency(totalPerdidas)}</div>
-            <div className="text-xs text-gray-500 mt-1">{oportunidadesPerdidas.length} orçamentos com status Inativo</div>
           </div>
         </div>
 
