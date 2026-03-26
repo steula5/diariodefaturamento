@@ -161,9 +161,7 @@ const Orcamento = () => {
 
   const totalOrcamentos = data.orcamentos.reduce((s, o) => s + o.valor, 0);
   const convertidos = data.orcamentos.filter(isConvertido);
-  const naoConvertidos = data.orcamentos.filter(o => !isConvertido(o));
   const totalConvertidos = convertidos.reduce((s, o) => s + o.valor, 0);
-  const totalNaoConvertidos = naoConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
   const oportunidadesAbertas = data.orcamentos.filter(o => o.no_sistema === true && !isConvertido(o));
@@ -209,8 +207,8 @@ const Orcamento = () => {
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-red-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Não Convertidos</div>
-            <div className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalNaoConvertidos)}</div>
-            <div className="text-xs text-gray-500 mt-1">{naoConvertidos.length} orçamentos</div>
+            <div className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalPerdidas)}</div>
+            <div className="text-xs text-gray-500 mt-1">{oportunidadesPerdidas.length} orçamentos inativos</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Taxa de Conversão</div>
