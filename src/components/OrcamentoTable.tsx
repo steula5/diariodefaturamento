@@ -161,6 +161,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Documento <SortIcon field="documento" />
                 </div>
               </th>
+              <th className="px-4 py-2 text-center">Ativid. Sistema</th>
               <th className="px-4 py-2 text-left">Cód. Cliente</th>
               <th 
                 className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
@@ -194,7 +195,6 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Virou Pedido <SortIcon field="virou_pedido" />
                 </div>
               </th>
-              <th className="px-4 py-2 text-center">Ativid. Sistema</th>
             </tr>
           </thead>
           <tbody>
