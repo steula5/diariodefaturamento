@@ -194,7 +194,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Virou Pedido <SortIcon field="virou_pedido" />
                 </div>
               </th>
-              <th className="px-4 py-2 text-center">No Sistema</th>
+              <th className="px-4 py-2 text-center">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -206,18 +206,18 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 <td className="px-4 py-2 font-medium text-blue-600">{orcamento.documento}</td>
                 <td className="px-4 py-2 text-center">
                   <button
-                    onClick={() => onNoSistemaToggle && onNoSistemaToggle(orcamento.documento, !(orcamento.no_sistema ?? true))}
-                    title={orcamento.no_sistema === false ? 'Saiu do sistema — clique para marcar como no sistema' : 'No sistema — clique para marcar como saiu'}
+                    onClick={() => onNoSistemaToggle && onNoSistemaToggle(orcamento.documento, !orcamento.no_sistema)}
+                    title={orcamento.no_sistema ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar'}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
-                      orcamento.no_sistema === false
-                        ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      orcamento.no_sistema
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                     }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${
-                      orcamento.no_sistema === false ? 'bg-gray-400' : 'bg-green-500'
+                      orcamento.no_sistema ? 'bg-green-500' : 'bg-gray-400'
                     }`} />
-                    {orcamento.no_sistema === false ? 'Saiu' : 'Ativo'}
+                    {orcamento.no_sistema ? 'Ativo' : 'Inativo'}
                   </button>
                 </td>
                 <td className="px-4 py-2">
