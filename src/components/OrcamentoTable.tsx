@@ -6,26 +6,33 @@ import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
 interface OrcamentoTableProps {
   orcamentos: Orcamento[];
   pedidosDocumentos: string[];
+  onOrcamentoUpdate?: (documento: string, numeroPedido: string) => void;
 }
 
 type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTableProps) {
+export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate }: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
+  const [editingDocumento, setEditingDocumento] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
   const pedidoSet = new Set(pedidosDocumentos);
-  const orcamentosComStatus = orcamentos.map(o => ({
-    ...o,
-    virou_pedido: pedidoSet.has(o.documento),
-  }));
+  const orcamentosComStatus = orcamentos.map(o => {
+    // Considera convertido se tem virou_pedido preenchido (manual) OU está na lista de pedidos
+    const convertido = Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+    return {
+      ...o,
+      convertido,
+    };
+  });
 
   // Filter
   const filtered = orcamentosComStatus.filter(o => {
-    if (filterStatus === 'convertidos') return o.virou_pedido;
-    if (filterStatus === 'nao_convertidos') return !o.virou_pedido;
+    if (filterStatus === 'convertidos') return o.convertido;
+    if (filterStatus === 'nao_convertidos') return !o.convertido;
     return true;
   });
 
@@ -35,8 +42,8 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTable
     let bValue: any = b[sortField];
 
     if (sortField === 'virou_pedido') {
-      aValue = a.virou_pedido ? 1 : 0;
-      bValue = b.virou_pedido ? 1 : 0;
+      aValue = a.convertido ? 1 : 0;
+      bValue = b.convertido ? 1 : 0;
     } else if (sortField === 'valor') {
       aValue = Number(aValue) || 0;
       bValue = Number(bValue) || 0;
@@ -56,9 +63,26 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTable
     }
   };
 
+  const handleEditStart = (documento: string, currentValue: string) => {
+    setEditingDocumento(documento);
+    setEditingValue(currentValue || '');
+  };
+
+  const handleEditSave = (documento: string) => {
+    if (onOrcamentoUpdate) {
+      onOrcamentoUpdate(documento, editingValue);
+    }
+    setEditingDocumento(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingDocumento(null);
+    setEditingValue('');
+  };
+
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
-  const totalNaoConvertidos = orcamentosComStatus.filter(o => !o.virou_pedido).reduce((s, o) => s + o.valor, 0);
-  const totalConvertidos = orcamentosComStatus.filter(o => o.virou_pedido).reduce((s, o) => s + o.valor, 0);
+  const totalNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido).reduce((s, o) => s + o.valor, 0);
+  const totalConvertidos = orcamentosComStatus.filter(o => o.convertido).reduce((s, o) => s + o.valor, 0);
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return <div className="w-4 h-4" />;
@@ -89,7 +113,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTable
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Convertidos ({orcamentosComStatus.filter(o => o.virou_pedido).length})
+            Convertidos ({orcamentosComStatus.filter(o => o.convertido).length})
           </button>
           <button
             onClick={() => setFilterStatus('nao_convertidos')}
@@ -99,27 +123,11 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTable
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Não Convertidos ({orcamentosComStatus.filter(o => !o.virou_pedido).length})
+            Não Convertidos ({orcamentosComStatus.filter(o => !o.convertido).length})
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-gray-600">Total de Orçamentos</div>
-            <div className="text-xl font-bold text-gray-900">{formatCurrency(totalOrcamentos)}</div>
-            <div className="text-xs text-gray-500 mt-1">{orcamentosComStatus.length} orçamentos</div>
-          </div>
-          <div className="bg-green-50 p-3 rounded-lg">
-            <div className="text-gray-600">Convertidos</div>
-            <div className="text-xl font-bold text-green-600">{formatCurrency(totalConvertidos)}</div>
-            <div className="text-xs text-gray-500 mt-1">{orcamentosComStatus.filter(o => o.virou_pedido).length} orçamentos</div>
-          </div>
-          <div className="bg-red-50 p-3 rounded-lg">
-            <div className="text-gray-600">Não Convertidos</div>
-            <div className="text-xl font-bold text-red-600">{formatCurrency(totalNaoConvertidos)}</div>
-            <div className="text-xs text-gray-500 mt-1">{orcamentosComStatus.filter(o => !o.virou_pedido).length} orçamentos</div>
-          </div>
-        </div>
+
       </div>
 
       <div className="overflow-x-auto">
@@ -179,17 +187,47 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos }: OrcamentoTable
                 <td className="px-4 py-2 text-gray-600">{orcamento.dataEmissao}</td>
                 <td className="px-4 py-2 text-right font-medium">{formatCurrency(orcamento.valor)}</td>
                 <td className="px-4 py-2 text-center">
-                  {orcamento.virou_pedido ? (
-                    <div className="flex items-center justify-center">
-                      <div className="bg-green-100 text-green-700 rounded-full p-1 flex items-center justify-center">
-                        <Check className="w-4 h-4" />
-                      </div>
+                  {editingDocumento === orcamento.documento ? (
+                    <div className="flex items-center justify-center gap-2 bg-blue-50 p-2 rounded border border-blue-200">
+                      <input
+                        type="text"
+                        placeholder="Nº pedido"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        className="w-20 px-2 py-1 text-xs border rounded"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleEditSave(orcamento.documento)}
+                        className="text-green-600 hover:text-green-800 font-bold"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={handleEditCancel}
+                        className="text-red-600 hover:text-red-800 font-bold"
+                      >
+                        ✕
+                      </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center">
-                      <div className="bg-red-100 text-red-700 rounded-full p-1 flex items-center justify-center">
-                        <X className="w-4 h-4" />
-                      </div>
+                    <div
+                      onClick={() => handleEditStart(orcamento.documento, String(orcamento.virou_pedido || ''))}
+                      className="cursor-pointer"
+                    >
+                      {orcamento.convertido ? (
+                        <div className="flex items-center justify-center">
+                          <div className="bg-green-100 text-green-700 rounded-full p-1 flex items-center justify-center hover:bg-green-200 transition-colors" title={String(orcamento.virou_pedido || 'Convertido')}>
+                            <Check className="w-4 h-4" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center">
+                          <div className="bg-red-100 text-red-700 rounded-full p-1 flex items-center justify-center hover:bg-red-200 transition-colors" title="Clique para adicionar nº pedido">
+                            <X className="w-4 h-4" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </td>

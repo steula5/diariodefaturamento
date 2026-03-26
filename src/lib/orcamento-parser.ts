@@ -50,9 +50,11 @@ export function parseOrcamentoExcelFile(data: ArrayBuffer): Orcamento[] {
     const documento = String(docCell.v).trim();
     if (!documento || documento.toLowerCase().startsWith('docto')) continue;
 
-    // Keep only ORÇAMENTO entries (codStatus 35)
+    // Keep only documents starting with "OR" (Orçamento)
+    if (!documento.toUpperCase().startsWith('OR')) continue;
+
     const codStatusVal = codStatusCell ? Number(codStatusCell.v) || 0 : 0;
-    if (codStatusVal !== 35) continue;
+    const statusText = statusCell ? String(statusCell.v).toLowerCase().trim() : '';
 
     let dataEmissao = '';
     if (dataCell) {
@@ -89,6 +91,11 @@ export function parseOrcamentoExcelFile(data: ArrayBuffer): Orcamento[] {
       codStatus: codStatusVal,
       status: statusCell ? String(statusCell.v).trim() : '',
     });
+  }
+
+  console.log(`📊 Parser Info: Found ${orcamentos.length} orçamentos in the worksheet`);
+  if (orcamentos.length === 0) {
+    console.warn('⚠️ No quotations with codStatus 35 or "orçamento" text found. Check file format.');
   }
 
   return orcamentos;

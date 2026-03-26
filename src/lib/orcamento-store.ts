@@ -1,4 +1,5 @@
 import type { OrcamentoData, Orcamento, OrcamentoDia } from '@/types/faturamento';
+import * as XLSX from 'xlsx';
 
 const STORAGE_KEY = 'orcamento_dados';
 
@@ -58,7 +59,7 @@ export function compareOrcamentosWithPedidos(orcamentos: Orcamento[], pedidosDoc
   const pedidoSet = new Set(pedidosDocumentos);
   return orcamentos.map(o => ({
     ...o,
-    virou_pedido: pedidoSet.has(o.documento),
+    virou_pedido: o.virou_pedido || (pedidoSet.has(o.documento) ? o.documento : undefined),
   }));
 }
 
@@ -89,17 +90,19 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   
   const pedidoSet = new Set(pedidosDocumentos);
+  const isConv = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
   const orcamentosComStatus = data.orcamentos.map(o => ({
     ...o,
-    virou_pedido: pedidoSet.has(o.documento),
+    convertido: isConv(o),
   }));
 
-  const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.virou_pedido);
-  const orcamentosConvertidos = orcamentosComStatus.filter(o => o.virou_pedido);
+  const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido);
+  const orcamentosConvertidos = orcamentosComStatus.filter(o => o.convertido);
 
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = orcamentosNaoConvertidos.reduce((s, o) => s + o.valor, 0);
   const totalConvertidos = orcamentosConvertidos.reduce((s, o) => s + o.valor, 0);
+  const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
   const rows = orcamentosComStatus.map(o => `
     <tr style="border-bottom: 1px solid #ddd;">
@@ -108,10 +111,11 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
       <td style="padding: 8px; text-align: left;">${o.dataEmissao}</td>
       <td style="padding: 8px; text-align: right;">${formatCurrency(o.valor)}</td>
       <td style="padding: 8px; text-align: center;">
-        <span style="color: ${o.virou_pedido ? '#22c55e' : '#ef4444'}; font-weight: bold;">
-          ${o.virou_pedido ? 'Sim' : 'Não'}
+        <span style="color: ${o.convertido ? '#22c55e' : '#ef4444'}; font-weight: bold;">
+          ${o.convertido ? 'Sim' : 'Não'}
         </span>
       </td>
+      <td style="padding: 8px; text-align: left;">${o.virou_pedido || ''}</td>
     </tr>
   `).join('');
 
@@ -132,8 +136,8 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
         h2 { font-size: 18px; margin-top: 20px; margin-bottom: 10px; color: #1e40af; }
         .summary {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 15px;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
           margin: 20px 0;
         }
         .card {
@@ -143,8 +147,12 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
           border-left: 4px solid #1e40af;
         }
         .card h3 { margin: 0 0 10px 0; font-size: 14px; color: #666; }
-        .card .value { font-size: 24px; font-weight: bold; color: #1e40af; }
-        table {
+        .card .value { font-size: 24px; font-weight: bold; color: #1e40af; }        .card.green { background: #f0fdf4; border-left-color: #22c55e; }
+        .card.green .value { color: #16a34a; }
+        .card.red { background: #fef2f2; border-left-color: #ef4444; }
+        .card.red .value { color: #dc2626; }
+        .card.green-taxa { background: #f0fdf4; border-left-color: #22c55e; }
+        .card.green-taxa .value { color: #16a34a; }        table {
           width: 100%;
           border-collapse: collapse;
           margin-top: 10px;
@@ -172,15 +180,20 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
           <div class="value">${formatCurrency(totalOrcamentos)}</div>
           <p>${orcamentosComStatus.length} orçamentos</p>
         </div>
-        <div class="card">
+        <div class="card green">
           <h3>Convertidos em Pedidos</h3>
-          <div class="value success">${formatCurrency(totalConvertidos)}</div>
+          <div class="value">${formatCurrency(totalConvertidos)}</div>
           <p>${orcamentosConvertidos.length} orçamentos</p>
         </div>
-        <div class="card">
+        <div class="card red">
           <h3>NÃO Convertidos</h3>
-          <div class="value warning">${formatCurrency(totalNaoConvertidos)}</div>
+          <div class="value">${formatCurrency(totalNaoConvertidos)}</div>
           <p>${orcamentosNaoConvertidos.length} orçamentos</p>
+        </div>
+        <div class="card green-taxa">
+          <h3>Taxa de Conversão</h3>
+          <div class="value">${taxaConversao.toFixed(1)}%</div>
+          <p>${orcamentosConvertidos.length} de ${orcamentosComStatus.length} convertidos</p>
         </div>
       </div>
 
@@ -219,6 +232,7 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
             <th>Data Emissão</th>
             <th>Valor</th>
             <th>Virou Pedido</th>
+            <th>Nº Pedido</th>
           </tr>
         </thead>
         <tbody>
@@ -228,4 +242,178 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
     </body>
     </html>
   `;
+}
+
+export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]): void {
+  const pedidoSet = new Set(pedidosDocumentos);
+  const [year, month] = data.mes.split('-').map(Number);
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const isConvExcel = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+  const convertidosExcel = data.orcamentos.filter(isConvExcel);
+  const totalExcel = data.orcamentos.reduce((s, o) => s + o.valor, 0);
+  const totalConvExcel = convertidosExcel.reduce((s, o) => s + o.valor, 0);
+  const taxaExcel = totalExcel > 0 ? (totalConvExcel / totalExcel) * 100 : 0;
+
+  // Summary sheet
+  const summaryData = [
+    { 'Indicador': 'Total em Orçamentos', 'Valor': formatCurrency(totalExcel), 'Quantidade': data.orcamentos.length },
+    { 'Indicador': 'Valores Convertidos', 'Valor': formatCurrency(totalConvExcel), 'Quantidade': convertidosExcel.length },
+    { 'Indicador': 'Valores Não Convertidos', 'Valor': formatCurrency(totalExcel - totalConvExcel), 'Quantidade': data.orcamentos.length - convertidosExcel.length },
+    { 'Indicador': 'Taxa de Conversão', 'Valor': taxaExcel.toFixed(1) + '%', 'Quantidade': '' },
+  ];
+  const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+  wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 12 }];
+
+  // Prepare data for Excel
+  const excelData = data.orcamentos.map(o => ({
+    'Documento': o.documento,
+    'Cliente': o.cliente,
+    'Cidade': o.cidade,
+    'Data Emissão': o.dataEmissao,
+    'Valor': o.valor,
+    'Convertido': isConvExcel(o) ? 'Sim' : 'Não',
+    'Nº Pedido': o.virou_pedido || '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo');
+  XLSX.utils.book_append_sheet(wb, ws, 'Orçamentos');
+
+  // Format columns
+  ws['!cols'] = [
+    { wch: 12 },  // Documento
+    { wch: 25 },  // Cliente
+    { wch: 20 },  // Cidade
+    { wch: 12 },  // Data Emissão
+    { wch: 12 },  // Valor
+    { wch: 12 },  // Convertido
+    { wch: 12 },  // Nº Pedido
+  ];
+
+  XLSX.writeFile(wb, `orcamentos_${data.mes}.xlsx`);
+}
+
+export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): void {
+  // For PDF, we'll use a simple approach: open print dialog with a formatted page
+  const pedidoSet = new Set(pedidosDocumentos);
+  const [year, month] = data.mes.split('-').map(Number);
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const orcamentosComStatus = data.orcamentos.map(o => ({
+    ...o,
+    convertido: Boolean(o.virou_pedido) || pedidoSet.has(o.documento),
+  }));
+
+  const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido);
+  const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
+  const totalNaoConvertidos = orcamentosNaoConvertidos.reduce((s, o) => s + o.valor, 0);
+  const totalConvertidos = orcamentosComStatus.filter(o => o.convertido).reduce((s, o) => s + o.valor, 0);
+  const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório de Orçamentos - ${monthNames[month - 1]} ${year}</title>
+      <style>
+        * { margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; padding: 20mm; color: #333; }
+        h1 { color: #1e40af; margin-bottom: 10px; }
+        h2 { font-size: 16px; margin-top: 20px; margin-bottom: 10px; color: #1e40af; }
+        .info { margin: 10px 0; font-size: 12px; }
+        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+        .card { padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .card h3 { font-size: 12px; color: #666; margin-bottom: 5px; }
+        .card .value { font-size: 18px; font-weight: bold; color: #1e40af; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        table th { background: #1e40af; color: white; padding: 8px; text-align: left; }
+        table td { padding: 6px; border-bottom: 1px solid #ddd; }
+        table tr:nth-child(even) { background: #f9f9f9; }
+        .page-break { page-break-after: always; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>Relatório de Orçamentos</h1>
+      <div class="info"><strong>Período:</strong> ${monthNames[month - 1]} de ${year}</div>
+      <div class="info"><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+
+      <div class="summary">
+        <div class="card">
+          <h3>Total de Orçamentos</h3>
+          <div class="value">${formatCurrency(totalOrcamentos)}</div>
+        </div>
+        <div class="card">
+          <h3>Convertidos</h3>
+          <div class="value" style="color: #22c55e;">${formatCurrency(totalConvertidos)}</div>
+        </div>
+        <div class="card">
+          <h3>Não Convertidos</h3>
+          <div class="value" style="color: #ef4444;">${formatCurrency(totalNaoConvertidos)}</div>
+        </div>
+        <div class="card">
+          <h3>Taxa de Conversão</h3>
+          <div class="value" style="color: #22c55e;">${taxaConversao.toFixed(1)}%</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${orcamentosComStatus.filter(o=>o.convertido).length} de ${orcamentosComStatus.length} convertidos</p>
+        </div>
+      </div>
+
+      <h2>Orçamentos Não Convertidos (${orcamentosNaoConvertidos.length})</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Cliente</th>
+            <th>Data</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orcamentosNaoConvertidos.map(o => `
+            <tr>
+              <td>${o.documento}</td>
+              <td>${o.cliente}</td>
+              <td>${o.dataEmissao}</td>
+              <td style="text-align: right;">${formatCurrency(o.valor)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <h2 style="margin-top: 30px;">Todos os Orçamentos (${orcamentosComStatus.length})</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Documento</th>
+            <th>Cliente</th>
+            <th>Data</th>
+            <th>Valor</th>
+            <th>Convertido</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orcamentosComStatus.map(o => `
+            <tr>
+              <td>${o.documento}</td>
+              <td>${o.cliente}</td>
+              <td>${o.dataEmissao}</td>
+              <td style="text-align: right;">${formatCurrency(o.valor)}</td>
+              <td>${o.convertido ? 'Sim' : 'Não'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const printWindow = window.open(url, '_blank');
+  if (printWindow) printWindow.print();
 }

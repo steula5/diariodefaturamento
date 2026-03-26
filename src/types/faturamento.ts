@@ -40,7 +40,7 @@ export interface Orcamento {
   codStatus: number;
   status: string;
   isDailyReport?: boolean; // true for synthetic daily report entries
-  virou_pedido?: boolean; // true if this quote became a purchase order
+  virou_pedido?: string; // número do pedido if converted, undefined if not
 }
 
 export interface OrcamentoDia {

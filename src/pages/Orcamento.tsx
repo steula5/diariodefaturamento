@@ -1,48 +1,30 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { OrcamentoCalendar } from '@/components/OrcamentoCalendar';
 import { OrcamentoTable } from '@/components/OrcamentoTable';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   loadOrcamentoData,
   saveOrcamentoData,
   exportToJSON,
   exportToHTML,
+  exportToExcel,
+  exportToPDF,
   getDefaultPeriod,
   mergeOrcamentos,
-  compareOrcamentosWithPedidos,
-  getDaysInMonth,
   formatCurrency,
 } from '@/lib/orcamento-store';
 import { parseOrcamentoExcelFile } from '@/lib/orcamento-parser';
 import { parseExcelFile } from '@/lib/excel-parser';
-import type { OrcamentoData, Orcamento, OrcamentoDia } from '@/types/faturamento';
-import { Download, Upload, Trash2, FileSpreadsheet, FileDown } from 'lucide-react';
+import type { OrcamentoData, Orcamento } from '@/types/faturamento';
+import { Download, Upload, Trash2, FileSpreadsheet, FileDown, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
-
-function buildOrcamentoDiario(orcamentos: Orcamento[], pedidosDocumentos: string[]): OrcamentoDia[] {
-  const pedidoSet = new Set(pedidosDocumentos);
-  const map = new Map<string, { valor: number; orcamentos: string[]; virou_pedido: number }>();
-
-  orcamentos.filter(o => o.isDailyReport).forEach(o => {
-    const dateStr = o.dataCalendario || o.dataEmissao;
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return;
-    const [d, m, y] = parts;
-    const key = `${y}-${m}-${d}`;
-    const existing = map.get(key) || { valor: 0, orcamentos: [], virou_pedido: 0 };
-    existing.valor += o.valor;
-    existing.orcamentos.push(o.documento);
-    if (pedidoSet.has(o.documento)) existing.virou_pedido += 1;
-    map.set(key, existing);
-  });
-
-  return Array.from(map.entries()).map(([data, v]) => ({
-    data,
-    valor: v.valor,
-    orcamentos: v.orcamentos,
-    virou_pedido: v.virou_pedido,
-  }));
-}
 
 const Orcamento = () => {
   const [data, setData] = useState<OrcamentoData>(() => {
@@ -77,18 +59,17 @@ const Orcamento = () => {
       const buffer = await file.arrayBuffer();
       const orcamentos = parseOrcamentoExcelFile(buffer);
       if (orcamentos.length === 0) {
-        toast.error('Nenhum orçamento encontrado na planilha.');
+        toast.error(
+          'Nenhum orçamento encontrado. Verifique se a planilha tem documentos começando com "OR"'
+        );
         return;
       }
       setData(prev => {
-        const dailyReports = prev.orcamentos.filter(p => p.isDailyReport);
-        const existingOrcamentos = prev.orcamentos.filter(p => !p.isDailyReport);
-        const mergedOrcamentos = mergeOrcamentos(existingOrcamentos, orcamentos);
-        const merged = [...mergedOrcamentos, ...dailyReports];
+        const mergedOrcamentos = mergeOrcamentos(prev.orcamentos, orcamentos);
         return {
           ...prev,
-          orcamentos: merged,
-          orcamentoDiario: buildOrcamentoDiario(merged, pedidosDocumentos),
+          orcamentos: mergedOrcamentos,
+          orcamentoDiario: [],
         };
       });
       toast.success(`${orcamentos.length} orçamentos importados com sucesso!`);
@@ -96,7 +77,7 @@ const Orcamento = () => {
       console.error(err);
       toast.error('Erro ao processar a planilha de orçamentos.');
     }
-  }, [pedidosDocumentos]);
+  }, []);
 
   const handlePedidosFile = useCallback(async (file: File) => {
     try {
@@ -104,67 +85,11 @@ const Orcamento = () => {
       const pedidos = parseExcelFile(buffer);
       const docIds = pedidos.map(p => p.documento);
       setPedidosDocumentos(docIds);
-
-      setData(prev => {
-        return {
-          ...prev,
-          orcamentoDiario: buildOrcamentoDiario(prev.orcamentos, docIds),
-        };
-      });
-
       toast.success(`${pedidos.length} pedidos importados! Comparação atualizada.`);
     } catch (err) {
       console.error(err);
       toast.error('Erro ao processar a planilha de pedidos.');
     }
-  }, []);
-
-  const handleDayUpload = useCallback(async (dateKey: string, file: File) => {
-    try {
-      const buffer = await file.arrayBuffer();
-      const orcamentos = parseOrcamentoExcelFile(buffer);
-      if (orcamentos.length === 0) {
-        toast.error('Nenhum orçamento encontrado no relatório.');
-        return;
-      }
-
-      const [y, m, d] = dateKey.split('-');
-      const calendarDate = `${d}/${m}/${y}`;
-      const totalValor = orcamentos.reduce((s, o) => s + o.valor, 0);
-
-      setData(prev => {
-        const dailyDocId = `ORC-${dateKey}`;
-        const filtered = prev.orcamentos.filter(p => p.documento !== dailyDocId);
-
-        const dailyOrcamento: Orcamento = {
-          documento: dailyDocId,
-          cliente: 'Orçamentos do Dia',
-          cidade: '',
-          dataEmissao: calendarDate,
-          dataCalendario: calendarDate,
-          valor: totalValor,
-          codStatus: 35,
-          status: 'ORÇAMENTO',
-          isDailyReport: true,
-          virou_pedido: false,
-        };
-
-        const merged = [...filtered, dailyOrcamento];
-        return {
-          ...prev,
-          orcamentos: merged,
-          orcamentoDiario: buildOrcamentoDiario(merged, pedidosDocumentos),
-        };
-      });
-      toast.success(`Orçamentos de ${calendarDate}: ${formatCurrency(totalValor)} (${orcamentos.length} orçamentos)`);
-    } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao processar o relatório.');
-    }
-  }, [pedidosDocumentos]);
-
-  const handleMonthChange = useCallback((newMonth: string) => {
-    setData(prev => ({ ...prev, mes: newMonth }));
   }, []);
 
   const handleExport = useCallback(() => {
@@ -176,6 +101,28 @@ const Orcamento = () => {
     exportToHTML(data, pedidosDocumentos);
     toast.success('Relatório HTML exportado!');
   }, [data, pedidosDocumentos]);
+
+  const handleExportExcel = useCallback(() => {
+    exportToExcel(data, pedidosDocumentos);
+    toast.success('Planilha Excel exportada!');
+  }, [data, pedidosDocumentos]);
+
+  const handleExportPDF = useCallback(() => {
+    exportToPDF(data, pedidosDocumentos);
+    toast.success('Abrindo PDF para impressão...');
+  }, [data, pedidosDocumentos]);
+
+  const handleOrcamentoUpdate = useCallback((documento: string, numeroPedido: string) => {
+    setData(prev => {
+      const updated = prev.orcamentos.map(o =>
+        o.documento === documento
+          ? { ...o, virou_pedido: numeroPedido || undefined as any }
+          : o
+      );
+      return { ...prev, orcamentos: updated };
+    });
+    toast.success('Orçamento atualizado!');
+  }, []);
 
   const handleClear = useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados?')) {
@@ -189,10 +136,15 @@ const Orcamento = () => {
     }
   }, []);
 
+  const pedidoSet = new Set(pedidosDocumentos);
+  const isConvertido = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+
   const totalOrcamentos = data.orcamentos.reduce((s, o) => s + o.valor, 0);
-  const totalNaoConvertidos = data.orcamentos
-    .filter(o => !pedidosDocumentos.includes(o.documento))
-    .reduce((s, o) => s + o.valor, 0);
+  const convertidos = data.orcamentos.filter(isConvertido);
+  const naoConvertidos = data.orcamentos.filter(o => !isConvertido(o));
+  const totalConvertidos = convertidos.reduce((s, o) => s + o.valor, 0);
+  const totalNaoConvertidos = naoConvertidos.reduce((s, o) => s + o.valor, 0);
+  const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
@@ -219,72 +171,78 @@ const Orcamento = () => {
         </div>
 
         {/* Quick Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-            <div className="text-sm text-gray-600">Total em Orçamentos</div>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalOrcamentos)}</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 min-w-0">
+            <div className="text-xs text-gray-600 truncate">Total em Orçamentos</div>
+            <div className="text-lg font-bold text-gray-900 truncate">{formatCurrency(totalOrcamentos)}</div>
             <div className="text-xs text-gray-500 mt-1">{data.orcamentos.length} orçamentos</div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-red-500">
-            <div className="text-sm text-gray-600">Não Convertidos</div>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(totalNaoConvertidos)}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {data.orcamentos.filter(o => !pedidosDocumentos.includes(o.documento)).length} orçamentos
-            </div>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
+            <div className="text-xs text-gray-600 truncate">Valores Convertidos</div>
+            <div className="text-lg font-bold text-green-600 truncate">{formatCurrency(totalConvertidos)}</div>
+            <div className="text-xs text-gray-500 mt-1">{convertidos.length} orçamentos</div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
-            <div className="text-sm text-gray-600">Taxa de Conversão</div>
-            <div className="text-2xl font-bold text-green-600">
-              {data.orcamentos.length > 0 
-                ? ((1 - totalNaoConvertidos / totalOrcamentos) * 100).toFixed(1) + '%'
-                : '0%'
-              }
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {data.orcamentos.filter(o => pedidosDocumentos.includes(o.documento)).length} orçamentos
-            </div>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-red-500 min-w-0">
+            <div className="text-xs text-gray-600 truncate">Não Convertidos</div>
+            <div className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalNaoConvertidos)}</div>
+            <div className="text-xs text-gray-500 mt-1">{naoConvertidos.length} orçamentos</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
+            <div className="text-xs text-gray-600 truncate">Taxa de Conversão</div>
+            <div className="text-lg font-bold text-green-600">{taxaConversao.toFixed(1)}%</div>
+            <div className="text-xs text-gray-500 mt-1">{convertidos.length} de {data.orcamentos.length} convertidos</div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              Importar Orçamentos
-            </button>
-            <button
-              onClick={() => pedidosInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Importar Pedidos (para comparação)
-            </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Exportar JSON
-            </button>
-            <button
-              onClick={handleExportHTML}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              <FileDown className="w-4 h-4" />
-              Exportar HTML
-            </button>
-            <button
-              onClick={handleClear}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Limpar Dados
-            </button>
-          </div>
+        {/* Action Menu */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">Ações</h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <MoreVertical className="w-5 h-5 text-slate-600" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Importar</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                Orçamentos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => pedidosInputRef.current?.click()}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Pedidos (para comparação)
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuLabel>Exportar</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleExport}>
+                <Download className="w-4 h-4 mr-2" />
+                JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportHTML}>
+                <FileDown className="w-4 h-4 mr-2" />
+                HTML
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportExcel}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                <Download className="w-4 h-4 mr-2" />
+                PDF (Imprimir)
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem onClick={handleClear} className="text-red-600">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Limpar Dados
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -301,20 +259,11 @@ const Orcamento = () => {
           />
         </div>
 
-        {/* Calendar and Table */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <OrcamentoCalendar
-            yearMonth={data.mes}
-            orcamentoDiario={data.orcamentoDiario}
-            onMonthChange={handleMonthChange}
-            onDayUpload={handleDayUpload}
-          />
-        </div>
-
         <div className="bg-white rounded-lg shadow-sm p-6">
           <OrcamentoTable
             orcamentos={data.orcamentos}
             pedidosDocumentos={pedidosDocumentos}
+            onOrcamentoUpdate={handleOrcamentoUpdate}
           />
         </div>
       </div>
