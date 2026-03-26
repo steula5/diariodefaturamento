@@ -40,6 +40,7 @@ export interface Orcamento {
   codStatus: number;
   status: string;
   isDailyReport?: boolean; // true for synthetic daily report entries
+  cod_cliente?: string; // código do cliente (editável manualmente)
   virou_pedido?: string; // número do pedido if converted, undefined if not
 }
 

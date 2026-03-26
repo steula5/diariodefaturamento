@@ -7,17 +7,20 @@ interface OrcamentoTableProps {
   orcamentos: Orcamento[];
   pedidosDocumentos: string[];
   onOrcamentoUpdate?: (documento: string, numeroPedido: string) => void;
+  onCodClienteUpdate?: (documento: string, codCliente: string) => void;
 }
 
 type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate }: OrcamentoTableProps) {
+export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate }: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
   const [editingDocumento, setEditingDocumento] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [editingCodDoc, setEditingCodDoc] = useState<string | null>(null);
+  const [editingCodValue, setEditingCodValue] = useState('');
 
   const pedidoSet = new Set(pedidosDocumentos);
   const orcamentosComStatus = orcamentos.map(o => {
@@ -73,6 +76,21 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
       onOrcamentoUpdate(documento, editingValue);
     }
     setEditingDocumento(null);
+  };
+
+  const handleCodClienteStart = (documento: string, current: string) => {
+    setEditingCodDoc(documento);
+    setEditingCodValue(current || '');
+  };
+
+  const handleCodClienteSave = (documento: string) => {
+    if (onCodClienteUpdate) onCodClienteUpdate(documento, editingCodValue);
+    setEditingCodDoc(null);
+  };
+
+  const handleCodClienteCancel = () => {
+    setEditingCodDoc(null);
+    setEditingCodValue('');
   };
 
   const handleEditCancel = () => {
@@ -142,6 +160,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Documento <SortIcon field="documento" />
                 </div>
               </th>
+              <th className="px-4 py-2 text-left">Cód. Cliente</th>
               <th 
                 className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('cliente')}
@@ -183,6 +202,31 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
               >
                 <td className="px-4 py-2 font-medium text-blue-600">{orcamento.documento}</td>
+                <td className="px-4 py-2">
+                  {editingCodDoc === orcamento.documento ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="Cód."
+                        value={editingCodValue}
+                        onChange={(e) => setEditingCodValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCodClienteSave(orcamento.documento); if (e.key === 'Escape') handleCodClienteCancel(); }}
+                        className="w-20 px-2 py-1 text-xs border rounded"
+                        autoFocus
+                      />
+                      <button onClick={() => handleCodClienteSave(orcamento.documento)} className="text-green-600 hover:text-green-800 font-bold">✓</button>
+                      <button onClick={handleCodClienteCancel} className="text-red-600 hover:text-red-800 font-bold">✕</button>
+                    </div>
+                  ) : (
+                    <span
+                      onClick={() => handleCodClienteStart(orcamento.documento, orcamento.cod_cliente || '')}
+                      className="cursor-pointer px-2 py-0.5 rounded hover:bg-gray-100 text-gray-700 text-xs"
+                      title="Clique para editar código do cliente"
+                    >
+                      {orcamento.cod_cliente || <span className="text-gray-300">—</span>}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-2">{orcamento.cliente}</td>
                 <td className="px-4 py-2 text-gray-600">{orcamento.dataEmissao}</td>
                 <td className="px-4 py-2 text-right font-medium">{formatCurrency(orcamento.valor)}</td>

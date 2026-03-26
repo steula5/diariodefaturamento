@@ -124,6 +124,17 @@ const Orcamento = () => {
     toast.success('Orçamento atualizado!');
   }, []);
 
+  const handleCodClienteUpdate = useCallback((documento: string, codCliente: string) => {
+    setData(prev => {
+      const updated = prev.orcamentos.map(o =>
+        o.documento === documento
+          ? { ...o, cod_cliente: codCliente || undefined }
+          : o
+      );
+      return { ...prev, orcamentos: updated };
+    });
+  }, []);
+
   const handleClear = useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados?')) {
       setData({
@@ -264,6 +275,7 @@ const Orcamento = () => {
             orcamentos={data.orcamentos}
             pedidosDocumentos={pedidosDocumentos}
             onOrcamentoUpdate={handleOrcamentoUpdate}
+            onCodClienteUpdate={handleCodClienteUpdate}
           />
         </div>
       </div>
