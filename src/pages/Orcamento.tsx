@@ -166,6 +166,11 @@ const Orcamento = () => {
   const totalNaoConvertidos = naoConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
 
+  const oportunidadesAbertas = data.orcamentos.filter(o => o.no_sistema === true);
+  const oportunidadesPerdidas = data.orcamentos.filter(o => !o.no_sistema);
+  const totalAbertas = oportunidadesAbertas.reduce((s, o) => s + o.valor, 0);
+  const totalPerdidas = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
@@ -190,8 +195,8 @@ const Orcamento = () => {
           </p>
         </div>
 
-        {/* Quick Info Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {/* Quick Info Cards — Conversão */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Total em Orçamentos</div>
             <div className="text-lg font-bold text-gray-900 truncate">{formatCurrency(totalOrcamentos)}</div>
@@ -211,6 +216,26 @@ const Orcamento = () => {
             <div className="text-xs text-gray-600 truncate">Taxa de Conversão</div>
             <div className="text-lg font-bold text-green-600">{taxaConversao.toFixed(1)}%</div>
             <div className="text-xs text-gray-500 mt-1">{convertidos.length} de {data.orcamentos.length} convertidos</div>
+          </div>
+        </div>
+
+        {/* Cards de Oportunidade — baseados no Status */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-emerald-500">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <div className="text-sm font-semibold text-gray-700">Oportunidades em Aberto</div>
+            </div>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalAbertas)}</div>
+            <div className="text-xs text-gray-500 mt-1">{oportunidadesAbertas.length} orçamentos com status Ativo</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-gray-400">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+              <div className="text-sm font-semibold text-gray-700">Oportunidades Perdidas</div>
+            </div>
+            <div className="text-2xl font-bold text-gray-500">{formatCurrency(totalPerdidas)}</div>
+            <div className="text-xs text-gray-500 mt-1">{oportunidadesPerdidas.length} orçamentos com status Inativo</div>
           </div>
         </div>
 
