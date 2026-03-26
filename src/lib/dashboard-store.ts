@@ -174,8 +174,13 @@ tr:hover{background:#f8fafc}
 .chart-line{fill:none;stroke:#2563eb;stroke-width:3}
 .chart-area{fill:rgba(37,99,235,.14)}
 .chart-dot{fill:#2563eb}
+.chart-trend{fill:none;stroke-width:2.2;stroke-dasharray:7 5}
+.chart-trend.up{stroke:#10b981}
+.chart-trend.down{stroke:#ef4444}
+.chart-trend.flat{stroke:#64748b}
 .chart-label{font-size:10px;fill:#64748b}
 .chart-value{font-size:10px;fill:#334155}
+.chart-trend-summary{margin-top:8px;font-size:.72rem;color:#475569;font-weight:600}
 .chart-tip{position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;pointer-events:none;display:none;z-index:100;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .chart-tip.vis{display:block}
 @media(max-width:768px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}.card-value{font-size:.9rem}}
@@ -202,6 +207,7 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <div id="chart-tip" class="chart-tip"></div>
 <svg id="daily-sales-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
 </div>
+<div id="chart-trend-summary" class="chart-trend-summary"></div>
 </div>
 
 <div class="grid grid-main">
@@ -282,6 +288,7 @@ detail.className='day-detail visible';
 
 function renderDailySalesChart(){
 var svg=document.getElementById('daily-sales-chart');
+var trendSummary=document.getElementById('chart-trend-summary');
 if(!svg) return;
 
 var yr=${year},mo=${month};
@@ -316,6 +323,7 @@ for(var d=1;d<=lastDay;d++){
 
 if(points.length===0){
   svg.innerHTML='<text x="500" y="110" text-anchor="middle" class="chart-label">Sem dias úteis para exibir no período</text>';
+  if(trendSummary) trendSummary.textContent='Tendência: sem dados no período.';
   return;
 }
 
@@ -331,6 +339,42 @@ function xAt(i){
   return left+(i*(chartW/(points.length-1)));
 }
 function yAt(v){return top+((maxVal-v)/maxVal)*chartH;}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+
+var trendClass='flat';
+var trendLabel='estável';
+var trendPath='';
+if(points.length>=2){
+  var n=points.length;
+  var sumX=0,sumY=0,sumXY=0,sumXX=0;
+  points.forEach(function(p,i){
+    sumX+=i;
+    sumY+=p.value;
+    sumXY+=i*p.value;
+    sumXX+=i*i;
+  });
+  var den=(n*sumXX)-(sumX*sumX);
+  var slope=den===0?0:((n*sumXY)-(sumX*sumY))/den;
+  var intercept=(sumY-(slope*sumX))/n;
+
+  var startVal=intercept;
+  var endVal=(slope*(n-1))+intercept;
+  var startY=yAt(clamp(startVal,0,maxVal));
+  var endY=yAt(clamp(endVal,0,maxVal));
+  trendPath='M '+xAt(0)+' '+startY+' L '+xAt(n-1)+' '+endY;
+
+  var trendThreshold=Math.max(maxVal*0.01,500);
+  if(slope>trendThreshold){
+    trendClass='up';
+    trendLabel='subindo';
+  } else if(slope<-trendThreshold){
+    trendClass='down';
+    trendLabel='descendo';
+  }
+}
+if(trendSummary){
+  trendSummary.textContent='Tendência do período: '+trendLabel+'.';
+}
 
 var yTicks=4;
 var grid='';
@@ -369,6 +413,7 @@ svg.innerHTML=''
   +grid
   +'<path d="'+areaPath+'" class="chart-area" />'
   +'<path d="'+linePath+'" class="chart-line" />'
+  +(trendPath?'<path d="'+trendPath+'" class="chart-trend '+trendClass+'" />':'')
   +hitZones
   +xLabels;
 }
