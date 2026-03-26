@@ -8,12 +8,13 @@ interface OrcamentoTableProps {
   pedidosDocumentos: string[];
   onOrcamentoUpdate?: (documento: string, numeroPedido: string) => void;
   onCodClienteUpdate?: (documento: string, codCliente: string) => void;
+  onNoSistemaToggle?: (documento: string, noSistema: boolean) => void;
 }
 
 type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate }: OrcamentoTableProps) {
+export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle }: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
@@ -193,6 +194,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   Virou Pedido <SortIcon field="virou_pedido" />
                 </div>
               </th>
+              <th className="px-4 py-2 text-center">No Sistema</th>
             </tr>
           </thead>
           <tbody>
@@ -202,6 +204,22 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
               >
                 <td className="px-4 py-2 font-medium text-blue-600">{orcamento.documento}</td>
+                <td className="px-4 py-2 text-center">
+                  <button
+                    onClick={() => onNoSistemaToggle && onNoSistemaToggle(orcamento.documento, !(orcamento.no_sistema ?? true))}
+                    title={orcamento.no_sistema === false ? 'Saiu do sistema — clique para marcar como no sistema' : 'No sistema — clique para marcar como saiu'}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                      orcamento.no_sistema === false
+                        ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      orcamento.no_sistema === false ? 'bg-gray-400' : 'bg-green-500'
+                    }`} />
+                    {orcamento.no_sistema === false ? 'Saiu' : 'Ativo'}
+                  </button>
+                </td>
                 <td className="px-4 py-2">
                   {editingCodDoc === orcamento.documento ? (
                     <div className="flex items-center gap-1">

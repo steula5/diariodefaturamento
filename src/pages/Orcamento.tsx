@@ -135,6 +135,15 @@ const Orcamento = () => {
     });
   }, []);
 
+  const handleNoSistemaToggle = useCallback((documento: string, noSistema: boolean) => {
+    setData(prev => {
+      const updated = prev.orcamentos.map(o =>
+        o.documento === documento ? { ...o, no_sistema: noSistema } : o
+      );
+      return { ...prev, orcamentos: updated };
+    });
+  }, []);
+
   const handleClear = useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados?')) {
       setData({
@@ -276,6 +285,7 @@ const Orcamento = () => {
             pedidosDocumentos={pedidosDocumentos}
             onOrcamentoUpdate={handleOrcamentoUpdate}
             onCodClienteUpdate={handleCodClienteUpdate}
+            onNoSistemaToggle={handleNoSistemaToggle}
           />
         </div>
       </div>
