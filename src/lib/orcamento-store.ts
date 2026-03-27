@@ -49,7 +49,14 @@ export function mergeOrcamentos(existing: Orcamento[], newOrcamentos: Orcamento[
   });
   
   newOrcamentos.forEach(o => {
-    map.set(o.documento, o);
+    const current = map.get(o.documento);
+    map.set(o.documento, {
+      ...o,
+      cod_cliente: current?.cod_cliente,
+      no_sistema: current?.no_sistema,
+      virou_pedido: current?.virou_pedido,
+      analisado: current?.analisado,
+    });
   });
   
   return Array.from(map.values());

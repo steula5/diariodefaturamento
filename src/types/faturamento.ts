@@ -43,6 +43,7 @@ export interface Orcamento {
   cod_cliente?: string; // código do cliente (editável manualmente)
   no_sistema?: boolean; // indica se ainda está no sistema (toggle manual)
   virou_pedido?: string; // número do pedido if converted, undefined if not
+  analisado?: boolean; // indica se o orçamento já foi analisado (checkbox manual)
 }
 
 export interface OrcamentoDia {

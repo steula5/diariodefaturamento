@@ -144,6 +144,15 @@ const Orcamento = () => {
     });
   }, []);
 
+  const handleAnalisadoToggle = useCallback((documento: string, analisado: boolean) => {
+    setData(prev => {
+      const updated = prev.orcamentos.map(o =>
+        o.documento === documento ? { ...o, analisado } : o
+      );
+      return { ...prev, orcamentos: updated };
+    });
+  }, []);
+
   const handleClear = useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados?')) {
       setData({
@@ -301,6 +310,7 @@ const Orcamento = () => {
             onOrcamentoUpdate={handleOrcamentoUpdate}
             onCodClienteUpdate={handleCodClienteUpdate}
             onNoSistemaToggle={handleNoSistemaToggle}
+            onAnalisadoToggle={handleAnalisadoToggle}
           />
         </div>
       </div>

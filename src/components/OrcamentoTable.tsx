@@ -9,12 +9,13 @@ interface OrcamentoTableProps {
   onOrcamentoUpdate?: (documento: string, numeroPedido: string) => void;
   onCodClienteUpdate?: (documento: string, codCliente: string) => void;
   onNoSistemaToggle?: (documento: string, noSistema: boolean) => void;
+  onAnalisadoToggle?: (documento: string, analisado: boolean) => void;
 }
 
 type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle }: OrcamentoTableProps) {
+export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle, onAnalisadoToggle }: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
@@ -162,6 +163,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 </div>
               </th>
               <th className="px-4 py-2 text-center">Ativid. Sistema</th>
+              <th className="px-4 py-2 text-center">Analisado</th>
               <th className="px-4 py-2 text-left">Cód. Cliente</th>
               <th 
                 className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
@@ -219,6 +221,15 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                     }`} />
                     {orcamento.no_sistema ? 'Ativo' : 'Inativo'}
                   </button>
+                </td>
+                <td className="px-4 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(orcamento.analisado)}
+                    onChange={(e) => onAnalisadoToggle && onAnalisadoToggle(orcamento.documento, e.target.checked)}
+                    className="h-4 w-4 cursor-pointer accent-blue-600"
+                    aria-label={`Marcar orçamento ${orcamento.documento} como analisado`}
+                  />
                 </td>
                 <td className="px-4 py-2">
                   {editingCodDoc === orcamento.documento ? (
