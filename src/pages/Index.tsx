@@ -86,7 +86,6 @@ const Index = () => {
         return {
           ...prev,
           pedidos: merged,
-          faturamentoDiario: buildFaturamentoDiario(merged),
         };
       });
       toast.success(`${pedidos.length} pedidos importados com sucesso!`);
@@ -198,7 +197,7 @@ const Index = () => {
     if (confirm('Tem certeza que deseja limpar apenas os pedidos?\nMeta e observações serão mantidas.')) {
       setData(prev => ({
         ...prev,
-        pedidos: [],
+        pedidos: prev.pedidos.filter(p => p.isDailyReport),
         ordenacaoPedidos: [],
       }));
       toast.success('Pedidos limpos.');
