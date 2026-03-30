@@ -13,6 +13,13 @@ export function getClassification(clasificacao: string): 'a' | 'p' {
   return result;
 }
 
+// Strict helper for KPI totals: only explicit A/P are counted.
+export function getExplicitClassification(classificacao: string): 'a' | 'p' | '' {
+  const cls = (classificacao || '').toLowerCase().trim();
+  if (cls === 'a' || cls === 'p') return cls;
+  return '';
+}
+
 export function getDefaultReportPeriod(date = new Date()): ReportPeriod {
   return date.getHours() < 12 ? 'manha' : 'tarde';
 }
@@ -70,8 +77,8 @@ function generateStandaloneHTML(data: DashboardData): string {
   const observacoes = data.observacoes || {};
   const realPedidos = data.pedidos.filter(p => !p.isDailyReport);
 
-  const pedidosMesAtual = realPedidos.filter(p => getClassification(classificacoes[p.documento] || '') === 'a');
-  const pedidosProximoMes = realPedidos.filter(p => getClassification(classificacoes[p.documento] || '') === 'p');
+  const pedidosMesAtual = realPedidos.filter(p => getExplicitClassification(classificacoes[p.documento] || '') === 'a');
+  const pedidosProximoMes = realPedidos.filter(p => getExplicitClassification(classificacoes[p.documento] || '') === 'p');
 
   const totalDespacho = pedidosMesAtual.reduce((s, p) => s + p.valor, 0);
   const totalProximoMes = pedidosProximoMes.reduce((s, p) => s + p.valor, 0);
