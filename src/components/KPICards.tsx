@@ -1,4 +1,4 @@
-import { formatCurrency, getExplicitClassification } from '@/lib/dashboard-store';
+import { formatCurrency, getClassification } from '@/lib/dashboard-store';
 import { getBusinessDaysInMonth, getRemainingBusinessDays } from '@/lib/holidays';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Pedido, FaturamentoDia, ReportPeriod } from '@/types/faturamento';
@@ -33,17 +33,29 @@ export function KPICards({
   // Use useMemo to force recalculation when classificacoes change
   const { pedidosMesAtual, pedidosProximoMes, totalDespacho, totalProximoMes } = useMemo(() => {
     const mesAtual = realPedidos.filter(p => {
-      const cls = getExplicitClassification(classificacoes[p.documento] || '');
-      return cls === 'a';
+      const cls = getClassification(classificacoes[p.documento] || '');
+      const matches = cls === 'a';
+      if (matches || classificacoes[p.documento]) {
+        console.log(`Pedido ${p.documento}: classificacao="${classificacoes[p.documento]}", cls="${cls}", matches=${matches}`);
+      }
+      return matches;
     });
     
     const proximoMes = realPedidos.filter(p => {
-      const cls = getExplicitClassification(classificacoes[p.documento] || '');
+      const cls = getClassification(classificacoes[p.documento] || '');
       return cls === 'p';
     });
 
     const totalMesAtual = mesAtual.reduce((s, p) => s + p.valor, 0);
     const totalProx = proximoMes.reduce((s, p) => s + p.valor, 0);
+
+    console.log('KPICards recalculating:', { 
+      mesAtual: mesAtual.length, 
+      proximoMes: proximoMes.length, 
+      totalMesAtual, 
+      totalProx,
+      pedidosMesAtualIds: mesAtual.map(p => p.documento)
+    });
 
     return {
       pedidosMesAtual: mesAtual,

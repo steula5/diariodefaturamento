@@ -212,10 +212,10 @@ const Index = () => {
   }, []);
 
   const handleClassificacaoChange = useCallback((doc: string, value: string) => {
-    const normalized = value.toLowerCase().trim().slice(0, 1);
-    const safeValue = normalized === 'a' || normalized === 'p' ? normalized : '';
+    console.log(`handleClassificacaoChange: doc="${doc}", value="${value}"`);
     setData(prev => {
-      const newClassificacoes = { ...(prev.classificacoes || {}), [doc]: safeValue };
+      const newClassificacoes = { ...(prev.classificacoes || {}), [doc]: value };
+      console.log(`Classificações atualizadas:`, newClassificacoes);
       return {
         ...prev,
         classificacoes: newClassificacoes,
