@@ -149,6 +149,10 @@ export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onD
         })}
       </div>
 
+      <p className="text-[10px] text-muted-foreground text-center mt-2">
+        Dica: clique direito em um dia com faturamento ou feriado municipal para limpar o dia.
+      </p>
+
       {/* Running totals */}
       <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
         <div>
