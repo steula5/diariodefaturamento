@@ -62,9 +62,16 @@ export function exportToHTML(data: DashboardData): void {
 function generateStandaloneHTML(data: DashboardData): string {
   const periodoRelatorio = data.periodoRelatorio || getDefaultReportPeriod();
   const periodoRelatorioLabel = periodoRelatorio === 'manha' ? 'Manhã' : 'Tarde';
-  const [year, month] = data.mes.split('-').map(Number);
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const monthsWithData = Array.from(new Set(
+    data.faturamentoDiario.map(f => f.data.slice(0, 7))
+  )).sort();
+  const reportMonthKey = monthsWithData.includes(data.mes)
+    ? data.mes
+    : (monthsWithData[monthsWithData.length - 1] || data.mes);
+  const [year, month] = reportMonthKey.split('-').map(Number);
 
   const classificacoes = data.classificacoes || {};
   const observacoes = data.observacoes || {};
@@ -83,9 +90,9 @@ function generateStandaloneHTML(data: DashboardData): string {
   const totalFaturamento = fatDiarioDoMes.reduce((s, f) => s + f.valor, 0);
   const diasComFat = fatDiarioDoMes.length;
   const mediaDiaria = diasComFat > 0 ? totalFaturamento / diasComFat : 0;
-  const diasUteisMes = getBusinessDaysInMonth(data.mes, data.feriadosPersonalizados);
+  const diasUteisMes = getBusinessDaysInMonth(reportMonthKey, data.feriadosPersonalizados);
   const projecao = mediaDiaria * diasUteisMes;
-  const diasUteisFaltantes = getRemainingBusinessDays(data.mes, periodoRelatorio, data.feriadosPersonalizados);
+  const diasUteisFaltantes = getRemainingBusinessDays(reportMonthKey, periodoRelatorio, data.feriadosPersonalizados);
   const objetivoDiario = diasUteisFaltantes > 0 ? (data.meta - totalFaturamento) / diasUteisFaltantes : 0;
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
