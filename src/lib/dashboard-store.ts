@@ -1,5 +1,6 @@
 import type { DashboardData, Pedido, ReportPeriod } from '@/types/faturamento';
 import { getBusinessDaysInMonth, getRemainingBusinessDays, isHoliday } from '@/lib/holidays';
+import { calculateDaysInPortfolio } from '@/lib/orcamento-store';
 
 const STORAGE_KEY = 'faturamento_dashboard';
 
@@ -137,7 +138,8 @@ function generateStandaloneHTML(data: DashboardData): string {
     const cls = getClassification(classificacoes[p.documento] || '');
     const isP = cls === 'p';
     const bgStyle = isP ? 'background:#fef9c3;' : '';
-    return `<tr style="${bgStyle}"><td class="mono" style="font-weight:600">${p.documento}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.cliente}</td><td style="color:#64748b">${p.cidade}</td><td style="color:#64748b;font-size:.7rem">${p.dataEmissao}</td><td class="mono val-cell" style="text-align:right;font-weight:600;${isP ? 'color:#f59e0b' : ''}">${fmt(p.valor)}</td><td style="font-size:.65rem">${p.status || 'Desp. Aprovado'}</td><td class="obs-col" title="${obs}">${obs}</td></tr>`;
+    const diasCarteira = calculateDaysInPortfolio(p.dataEmissao);
+    return `<tr style="${bgStyle}"><td class="mono" style="font-weight:600">${p.documento}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.cliente}</td><td style="color:#64748b">${p.cidade}</td><td style="color:#64748b;font-size:.7rem">${p.dataEmissao}</td><td class="mono val-cell" style="text-align:right;font-size:.7rem;color:#64748b">${diasCarteira} dias</td><td class="mono val-cell" style="text-align:right;font-weight:600;${isP ? 'color:#f59e0b' : ''}">${fmt(p.valor)}</td><td style="font-size:.65rem">${p.status || 'Desp. Aprovado'}</td><td class="obs-col" title="${obs}">${obs}</td></tr>`;
   }).join('');
 
   return `<!DOCTYPE html>
@@ -278,7 +280,7 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <div class="card">
 <div class="card-label">Pedidos — Despacho Aprovado (${realPedidos.length})</div>
 <div style="overflow:auto;max-height:500px">
-<table><thead><tr><th>Pedido</th><th>Cliente</th><th>Cidade</th><th>Emissão</th><th style="text-align:right">Valor</th><th>Status</th><th>Observação</th></tr></thead><tbody>${ordersHTML}</tbody></table>
+<table><thead><tr><th>Pedido</th><th>Cliente</th><th>Cidade</th><th>Emissão</th><th>Dias em Carteira</th><th style="text-align:right">Valor</th><th>Status</th><th>Observação</th></tr></thead><tbody>${ordersHTML}</tbody></table>
 </div>
 </div>
 </div>
