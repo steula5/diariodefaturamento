@@ -323,6 +323,8 @@ for(var d=1;d<=lastDay;d++){
   var dt=new Date(yr,mo-1,d);
   var wk=dt.getDay();
   if(wk===0||wk===6) continue;
+  var dtKey=dt.toISOString().split('T')[0];
+  if(feriadosPersonalizados.includes(dtKey)) continue;
   if(dt>cutoffDate) continue;
   points.push({day:d,value:fatMap.get(d)||0});
 }
