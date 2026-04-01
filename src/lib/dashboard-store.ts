@@ -213,7 +213,6 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <div style="display:flex;gap:4px">
 <button id="tab-diario" onclick="setTab('diario')" class="tab-btn tab-active">Evolução Diária</button>
 <button id="tab-mensal" onclick="setTab('mensal')" class="tab-btn">Comparativo Mensal</button>
-<button id="tab-anual" onclick="setTab('anual')" class="tab-btn" style="display:none">Comparativo Anual</button>
 </div>
 </div>
 <div id="panel-diario">
@@ -233,12 +232,6 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <svg id="monthly-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
 </div>
 <div id="monthly-chart-summary" class="chart-trend-summary" style="margin-top:8px"></div>
-</div>
-<div id="panel-anual" style="display:none">
-<div class="chart-wrap">
-<svg id="annual-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
-</div>
-<div id="annual-chart-summary" class="chart-trend-summary" style="margin-top:8px"></div>
 </div>
 </div>
 
@@ -285,31 +278,15 @@ var availableMonths=(function(){
   if(!seen[curKey]) list.push({y:REPORT_YEAR,m:REPORT_MONTH});
   return list;
 })();
-var monthTotalsAll=(function(){
-  var totals={};
-  fatDiario.forEach(function(f){
-    var p=f.data.split('-');
-    var key=p[0]+'-'+p[1];
-    totals[key]=(totals[key]||0)+f.valor;
-  });
-  return totals;
-})();
-var monthsSorted=Object.keys(monthTotalsAll).sort();
-var hasAnnualComparison=monthsSorted.length>=24;
 function showTip(e,label){if(!tip)tip=document.getElementById('chart-tip');tip.textContent=label;tip.className='chart-tip vis';moveTip(e)}
 function moveTip(e){var x=e.clientX+14,y=e.clientY-42;if(x+260>window.innerWidth)x=e.clientX-260;tip.style.left=x+'px';tip.style.top=y+'px'}
 function hideTip(){if(tip)tip.className='chart-tip'}
 function setTab(tab){
-  if(tab==='anual'&&!hasAnnualComparison) tab='mensal';
   document.getElementById('panel-diario').style.display=tab==='diario'?'block':'none';
   document.getElementById('panel-mensal').style.display=tab==='mensal'?'block':'none';
-  document.getElementById('panel-anual').style.display=tab==='anual'?'block':'none';
   document.getElementById('tab-diario').className='tab-btn'+(tab==='diario'?' tab-active':'');
   document.getElementById('tab-mensal').className='tab-btn'+(tab==='mensal'?' tab-active':'');
-  document.getElementById('tab-anual').className='tab-btn'+(tab==='anual'?' tab-active':'');
-  if(tab==='mensal') renderMonthlyChart();
-  else if(tab==='anual') renderAnnualChart();
-  else renderDailySalesChart();
+  if(tab==='mensal') renderMonthlyChart(); else renderDailySalesChart();
 }
 function changeChartMonth(dir){
   var idx=-1;
@@ -533,8 +510,12 @@ function renderMonthlyChart(){
   var svg=document.getElementById('monthly-chart');
   var summary=document.getElementById('monthly-chart-summary');
   if(!svg) return;
-  var monthTotals=monthTotalsAll;
-  var months=monthsSorted;
+  var monthTotals={};
+  fatDiario.forEach(function(f){
+    var p=f.data.split('-');var k=p[0]+'-'+p[1];
+    monthTotals[k]=(monthTotals[k]||0)+f.valor;
+  });
+  var months=Object.keys(monthTotals).sort();
   if(months.length===0){
     svg.innerHTML='<text x="500" y="110" text-anchor="middle" class="chart-label">Sem dados para comparativo mensal</text>';
     if(summary) summary.textContent='Sem dados registrados.';
@@ -584,70 +565,6 @@ function renderMonthlyChart(){
     var bestParts=best.split('-');
     summary.innerHTML='<strong>'+months.length+' meses</strong> registrados. Média mensal: <strong>'+fmt(avg)+'</strong>. Melhor mês: <strong>'+MONTH_NAMES[+bestParts[1]-1]+'/'+bestParts[0]+'</strong> ('+fmt(monthTotals[best])+').';
   }
-}
-
-function renderAnnualChart(){
-  var svg=document.getElementById('annual-chart');
-  var summary=document.getElementById('annual-chart-summary');
-  if(!svg) return;
-
-  var yearTotals={};
-  monthsSorted.forEach(function(k){
-    var y=k.split('-')[0];
-    yearTotals[y]=(yearTotals[y]||0)+monthTotalsAll[k];
-  });
-  var years=Object.keys(yearTotals).sort();
-
-  if(years.length===0){
-    svg.innerHTML='<text x="500" y="110" text-anchor="middle" class="chart-label">Sem dados para comparativo anual</text>';
-    if(summary) summary.textContent='Sem dados registrados.';
-    return;
-  }
-
-  var w=1000,h=220,left=60,right=20,top=20,bottom=42;
-  var chartW=w-left-right,chartH=h-top-bottom;
-  var n=years.length;
-  var barW=Math.min(110,Math.floor(chartW/n*0.55));
-  var maxVal=1;
-  years.forEach(function(y){if(yearTotals[y]>maxVal)maxVal=yearTotals[y];});
-
-  var yTicks=4,grid='';
-  for(var t=0;t<=yTicks;t++){
-    var yg=top+(t*(chartH/yTicks));
-    var vg=maxVal-(t*(maxVal/yTicks));
-    grid+='<line x1="'+left+'" y1="'+yg+'" x2="'+(w-right)+'" y2="'+yg+'" class="chart-grid" />';
-    grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'k')+'</text>';
-  }
-
-  var bars='',xLabels='',valLabels='';
-  years.forEach(function(y,i){
-    var x=left+(i+0.5)*(chartW/n);
-    var val=yearTotals[y];
-    var bh=Math.max(2,(val/maxVal)*chartH);
-    var yy=top+chartH-bh;
-    var isCurrent=+y===REPORT_YEAR;
-    var color=isCurrent?'#2563eb':'#60a5fa';
-    bars+='<rect x="'+(x-barW/2)+'" y="'+yy+'" width="'+barW+'" height="'+bh+'" rx="6" fill="'+color+'" opacity="0.9" onmouseover="showTip(event,\''+y+': '+fmt(val)+'\')" onmouseout="hideTip()" style="cursor:pointer" />';
-    xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" style="font-size:10px;fill:'+(isCurrent?'#2563eb':'#64748b')+';font-weight:'+(isCurrent?'700':'500')+'">'+y+'</text>';
-    if(val>0) valLabels+='<text x="'+x+'" y="'+(yy-4)+'" text-anchor="middle" style="font-size:9px;fill:#334155">'+Math.round(val/1000)+'k</text>';
-  });
-
-  svg.innerHTML=''
-    +'<line x1="'+left+'" y1="'+(top+chartH)+'" x2="'+(w-right)+'" y2="'+(top+chartH)+'" class="chart-axis" />'
-    +grid+bars+xLabels+valLabels;
-
-  if(summary){
-    var total=years.reduce(function(s,y){return s+yearTotals[y];},0);
-    var avg=total/years.length;
-    var bestYear=years[0];
-    years.forEach(function(y){if(yearTotals[y]>yearTotals[bestYear])bestYear=y;});
-    summary.innerHTML='<strong>'+years.length+' anos</strong> comparados ('+monthsSorted.length+' meses). Média anual: <strong>'+fmt(avg)+'</strong>. Melhor ano: <strong>'+bestYear+'</strong> ('+fmt(yearTotals[bestYear])+').';
-  }
-}
-
-if(hasAnnualComparison){
-  var annualTab=document.getElementById('tab-anual');
-  if(annualTab) annualTab.style.display='inline-flex';
 }
 
 renderCalendar();
