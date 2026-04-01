@@ -129,6 +129,10 @@ const Index = () => {
         const dailyDocId = `FAT-${dateKey}`;
         const filtered = prev.pedidos.filter(p => p.documento !== dailyDocId);
 
+        // If this day was marked as a holiday, remove it automatically
+        const feriadosAtualizados = (prev.feriadosPersonalizados || []).filter(k => k !== dateKey);
+        const removeuFeriado = feriadosAtualizados.length !== (prev.feriadosPersonalizados || []).length;
+
         // Add synthetic entry for calendar display
         const dailyPedido: Pedido = {
           documento: dailyDocId,
@@ -143,10 +147,14 @@ const Index = () => {
         };
 
         const merged = [...filtered, dailyPedido];
+        if (removeuFeriado) {
+          toast.info(`Feriado de ${calendarDate} removido automaticamente.`);
+        }
         return {
           ...prev,
           pedidos: merged,
           faturamentoDiario: buildFaturamentoDiario(merged),
+          feriadosPersonalizados: feriadosAtualizados,
         };
       });
       toast.success(`Faturamento de ${calendarDate}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}`);
