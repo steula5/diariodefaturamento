@@ -27,6 +27,19 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+export function calculateDaysInPortfolio(dataEmissao: string): number {
+  // Parse dataEmissao in DD/MM/YYYY format
+  const [day, month, year] = dataEmissao.split('/').map(Number);
+  const emissionDate = new Date(year, month - 1, day);
+  const today = new Date();
+  
+  // Calculate the difference in milliseconds and convert to days
+  const differenceMs = today.getTime() - emissionDate.getTime();
+  const differenceDays = Math.floor(differenceMs / (1000 * 60 * 60 * 24));
+  
+  return differenceDays;
+}
+
 export function loadOrcamentoData(): OrcamentoData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -116,6 +129,7 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
       <td style="padding: 8px; text-align: left;">${o.documento}</td>
       <td style="padding: 8px; text-align: left;">${o.cliente}</td>
       <td style="padding: 8px; text-align: left;">${o.dataEmissao}</td>
+      <td style="padding: 8px; text-align: right;">${calculateDaysInPortfolio(o.dataEmissao)} dias</td>
       <td style="padding: 8px; text-align: right;">${formatCurrency(o.valor)}</td>
       <td style="padding: 8px; text-align: center;">
         <span style="color: ${o.convertido ? '#22c55e' : '#ef4444'}; font-weight: bold;">
@@ -212,6 +226,7 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
               <th>Documento</th>
               <th>Cliente</th>
               <th>Data Emissão</th>
+              <th>Dias em Carteira</th>
               <th>Valor</th>
               <th>Virou Pedido</th>
             </tr>
@@ -222,6 +237,7 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
                 <td style="padding: 8px;">${o.documento}</td>
                 <td style="padding: 8px;">${o.cliente}</td>
                 <td style="padding: 8px;">${o.dataEmissao}</td>
+                <td style="padding: 8px; text-align: right;">${calculateDaysInPortfolio(o.dataEmissao)} dias</td>
                 <td style="padding: 8px; text-align: right;">${formatCurrency(o.valor)}</td>
                 <td style="padding: 8px; text-align: center; color: #ef4444; font-weight: bold;">Não</td>
               </tr>
@@ -237,6 +253,7 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
             <th>Documento</th>
             <th>Cliente</th>
             <th>Data Emissão</th>
+            <th>Dias em Carteira</th>
             <th>Valor</th>
             <th>Virou Pedido</th>
             <th>Nº Pedido</th>
@@ -279,6 +296,7 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
     'Cliente': o.cliente,
     'Cidade': o.cidade,
     'Data Emissão': o.dataEmissao,
+    'Dias em Carteira': calculateDaysInPortfolio(o.dataEmissao),
     'Valor': o.valor,
     'Convertido': isConvExcel(o) ? 'Sim' : 'Não',
     'Nº Pedido': o.virou_pedido || '',
@@ -295,6 +313,7 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
     { wch: 25 },  // Cliente
     { wch: 20 },  // Cidade
     { wch: 12 },  // Data Emissão
+    { wch: 16 },  // Dias em Carteira
     { wch: 12 },  // Valor
     { wch: 12 },  // Convertido
     { wch: 12 },  // Nº Pedido
