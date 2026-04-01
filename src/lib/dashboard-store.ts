@@ -237,7 +237,14 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 
 <div class="grid grid-main">
 <div class="card">
-<div class="card-label">Calendário — ${monthNames[month - 1]} ${year}</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+<div class="card-label" style="margin-bottom:0">Calendário</div>
+<div style="display:flex;align-items:center;gap:8px">
+<button onclick="changeCalendarMonth(-1)" style="background:none;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:16px;line-height:1;color:#64748b">&#8249;</button>
+<span id="calendar-month-label" style="font-size:.72rem;font-weight:600;color:#475569;min-width:120px;text-align:center"></span>
+<button onclick="changeCalendarMonth(1)" style="background:none;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:16px;line-height:1;color:#64748b">&#8250;</button>
+</div>
+</div>
 <div class="card-label" style="margin-bottom:8px;font-size:.6rem;color:#94a3b8">Clique em um dia para ver o faturamento</div>
 <div id="calendar"></div>
 <div id="day-detail" class="day-detail"></div>
@@ -267,6 +274,7 @@ var tipLabels=[];
 var monthTipLabels=[];
 var tip=null;
 var chartYear=REPORT_YEAR,chartMonth=REPORT_MONTH;
+var calendarYear=REPORT_YEAR,calendarMonth=REPORT_MONTH;
 var availableMonths=(function(){
   var seen={},list=[];
   fatDiario.forEach(function(f){
@@ -297,9 +305,26 @@ function changeChartMonth(dir){
   renderDailySalesChart();
 }
 
+function changeCalendarMonth(dir){
+  var idx=-1;
+  for(var i=0;i<availableMonths.length;i++){
+    if(availableMonths[i].y===calendarYear&&availableMonths[i].m===calendarMonth){idx=i;break;}
+  }
+  var ni=idx+dir;
+  if(ni<0||ni>=availableMonths.length) return;
+  calendarYear=availableMonths[ni].y;
+  calendarMonth=availableMonths[ni].m;
+  selectedDay=null;
+  var detail=document.getElementById('day-detail');
+  if(detail) detail.className='day-detail';
+  renderCalendar();
+}
+
 function renderCalendar(){
 var cal=document.getElementById('calendar');
-var yr=REPORT_YEAR,mo=REPORT_MONTH;
+var label=document.getElementById('calendar-month-label');
+if(label) label.textContent=MONTH_NAMES[calendarMonth-1]+' '+calendarYear;
+var yr=calendarYear,mo=calendarMonth;
 var first=new Date(yr,mo-1,1);
 var last=new Date(yr,mo,0);
 var today=new Date();today.setHours(0,0,0,0);
@@ -337,9 +362,9 @@ renderCalendar();
 var detail=document.getElementById('day-detail');
 if(!selectedDay){detail.className='day-detail';return}
 if(fat>0){
-detail.innerHTML='<div class="day-title">Faturamento — Dia '+d+'/'+REPORT_MONTH+'/'+REPORT_YEAR+'</div><div class="day-value">'+fmt(fat)+'</div>';
+detail.innerHTML='<div class="day-title">Faturamento — Dia '+d+'/'+calendarMonth+'/'+calendarYear+'</div><div class="day-value">'+fmt(fat)+'</div>';
 } else {
-detail.innerHTML='<div class="day-title">Dia '+d+'/'+REPORT_MONTH+'/'+REPORT_YEAR+'</div><div class="day-no-data">Sem faturamento registrado</div>';
+detail.innerHTML='<div class="day-title">Dia '+d+'/'+calendarMonth+'/'+calendarYear+'</div><div class="day-no-data">Sem faturamento registrado</div>';
 }
 detail.className='day-detail visible';
 }
