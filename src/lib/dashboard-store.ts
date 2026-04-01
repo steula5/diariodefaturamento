@@ -589,7 +589,7 @@ for(var t=0;t<=yTicks;t++){
   var yg=top+(t*(chartH/yTicks));
   var vg=maxVal-(t*(maxVal/yTicks));
   grid+='<line x1="'+left+'" y1="'+yg+'" x2="'+(w-right)+'" y2="'+yg+'" class="chart-grid" />';
-  grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'k')+'</text>';
+  grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'M')+'</text>';
 }
 
 var linePath='',areaPath='M '+xAt(0)+' '+(top+chartH)+' ';
@@ -657,7 +657,7 @@ function renderMonthlyChart(){
     var yg=top+(t*(chartH/yTicks));
     var vg=maxVal-(t*(maxVal/yTicks));
     grid+='<line x1="'+left+'" y1="'+yg+'" x2="'+(w-right)+'" y2="'+yg+'" class="chart-grid" />';
-    grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'k')+'</text>';
+    grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'M')+'</text>';
   }
   var bars='',xLabels='',valLabels='';
   months.forEach(function(k,i){
@@ -671,7 +671,7 @@ function renderMonthlyChart(){
     var lbl=MONTH_NAMES[+parts[1]-1].substring(0,3)+'/'+parts[0].substring(2);
     bars+='<rect x="'+(x-barW/2)+'" y="'+y+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+color+'" opacity="0.9" onmouseover="showTip(event,monthTipLabels['+i+'])" onmouseout="hideTip()" style="cursor:pointer" />';
     xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" style="font-size:9px;fill:'+(isCur?'#2563eb':'#64748b')+';font-weight:'+(isCur?'700':'400')+'">'+lbl+'</text>';
-    if(val>0) valLabels+='<text x="'+x+'" y="'+(y-4)+'" text-anchor="middle" style="font-size:9px;fill:#334155">'+Math.round(val/1000)+'k</text>';
+    if(val>0) valLabels+='<text x="'+x+'" y="'+(y-4)+'" text-anchor="middle" style="font-size:9px;fill:#334155">'+Math.round(val/1000)+'M</text>';
   });
   svg.innerHTML=''
     +'<line x1="'+left+'" y1="'+(top+chartH)+'" x2="'+(w-right)+'" y2="'+(top+chartH)+'" class="chart-axis" />'
