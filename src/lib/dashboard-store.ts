@@ -186,6 +186,9 @@ tr:hover{background:#f8fafc}
 .chart-trend-summary .trend-meta{font-weight:500;color:#64748b;margin-left:6px}
 .chart-tip{position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;pointer-events:none;display:none;z-index:100;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .chart-tip.vis{display:block}
+.tab-btn{font-size:.65rem;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;transition:all .15s}
+.tab-btn.tab-active{background:#2563eb;color:#fff;border-color:#2563eb}
+.tab-btn:hover:not(.tab-active){background:#f1f5f9}
 @media(max-width:768px){.grid-kpi{grid-template-columns:repeat(2,1fr)}.grid-main{grid-template-columns:1fr}.card-value{font-size:.9rem}}
 </style>
 </head>
@@ -205,12 +208,31 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 </div>
 
 <div class="card" style="margin-bottom:20px">
-<div class="card-label">Evolução Diária de Vendas</div>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+<div class="card-label" style="margin-bottom:0">Gráfico de Faturamento</div>
+<div style="display:flex;gap:4px">
+<button id="tab-diario" onclick="setTab('diario')" class="tab-btn tab-active">Evolução Diária</button>
+<button id="tab-mensal" onclick="setTab('mensal')" class="tab-btn">Comparativo Mensal</button>
+</div>
+</div>
+<div id="panel-diario">
+<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px">
+<button onclick="changeChartMonth(-1)" style="background:none;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:16px;line-height:1;color:#64748b">&#8249;</button>
+<span id="chart-month-label" style="font-size:.8rem;font-weight:600;color:#475569;min-width:130px;text-align:center"></span>
+<button onclick="changeChartMonth(1)" style="background:none;border:1px solid #e2e8f0;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:16px;line-height:1;color:#64748b">&#8250;</button>
+</div>
 <div class="chart-wrap">
 <div id="chart-tip" class="chart-tip"></div>
 <svg id="daily-sales-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
 </div>
 <div id="chart-trend-summary" class="chart-trend-summary"></div>
+</div>
+<div id="panel-mensal" style="display:none">
+<div class="chart-wrap">
+<svg id="monthly-chart" class="chart-svg" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
+</div>
+<div id="monthly-chart-summary" class="chart-trend-summary" style="margin-top:8px"></div>
+</div>
 </div>
 
 <div class="grid grid-main">
@@ -236,18 +258,48 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <script>
 var fatDiario=${fatDiarioJSON};
 var feriadosPersonalizados=${feriadosJSON};
+var MONTH_NAMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var REPORT_YEAR=${year},REPORT_MONTH=${month},PERIODO='${periodoRelatorio}';
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 var selectedDay=null;
 var tipLabels=[];
+var monthTipLabels=[];
 var tip=null;
+var chartYear=REPORT_YEAR,chartMonth=REPORT_MONTH;
+var availableMonths=(function(){
+  var seen={},list=[];
+  fatDiario.forEach(function(f){
+    var p=f.data.split('-');var key=p[0]+'-'+p[1];
+    if(!seen[key]){seen[key]=1;list.push({y:+p[0],m:+p[1]});}
+  });
+  list.sort(function(a,b){return a.y!==b.y?a.y-b.y:a.m-b.m});
+  var curKey=REPORT_YEAR+'-'+(REPORT_MONTH<10?'0'+REPORT_MONTH:''+REPORT_MONTH);
+  if(!seen[curKey]) list.push({y:REPORT_YEAR,m:REPORT_MONTH});
+  return list;
+})();
 function showTip(e,label){if(!tip)tip=document.getElementById('chart-tip');tip.textContent=label;tip.className='chart-tip vis';moveTip(e)}
 function moveTip(e){var x=e.clientX+14,y=e.clientY-42;if(x+260>window.innerWidth)x=e.clientX-260;tip.style.left=x+'px';tip.style.top=y+'px'}
 function hideTip(){if(tip)tip.className='chart-tip'}
+function setTab(tab){
+  document.getElementById('panel-diario').style.display=tab==='diario'?'block':'none';
+  document.getElementById('panel-mensal').style.display=tab==='mensal'?'block':'none';
+  document.getElementById('tab-diario').className='tab-btn'+(tab==='diario'?' tab-active':'');
+  document.getElementById('tab-mensal').className='tab-btn'+(tab==='mensal'?' tab-active':'');
+  if(tab==='mensal') renderMonthlyChart(); else renderDailySalesChart();
+}
+function changeChartMonth(dir){
+  var idx=-1;
+  for(var i=0;i<availableMonths.length;i++){if(availableMonths[i].y===chartYear&&availableMonths[i].m===chartMonth){idx=i;break;}}
+  var ni=idx+dir;
+  if(ni<0||ni>=availableMonths.length) return;
+  chartYear=availableMonths[ni].y;chartMonth=availableMonths[ni].m;
+  renderDailySalesChart();
+}
 
 function renderCalendar(){
 var cal=document.getElementById('calendar');
-var yr=${year},mo=${month};
+var yr=REPORT_YEAR,mo=REPORT_MONTH;
 var first=new Date(yr,mo-1,1);
 var last=new Date(yr,mo,0);
 var today=new Date();today.setHours(0,0,0,0);
@@ -285,20 +337,21 @@ renderCalendar();
 var detail=document.getElementById('day-detail');
 if(!selectedDay){detail.className='day-detail';return}
 if(fat>0){
-detail.innerHTML='<div class="day-title">Faturamento — Dia '+d+'/${month}/${year}</div><div class="day-value">'+fmt(fat)+'</div>';
+detail.innerHTML='<div class="day-title">Faturamento — Dia '+d+'/'+REPORT_MONTH+'/'+REPORT_YEAR+'</div><div class="day-value">'+fmt(fat)+'</div>';
 } else {
-detail.innerHTML='<div class="day-title">Dia '+d+'/${month}/${year}</div><div class="day-no-data">Sem faturamento registrado</div>';
+detail.innerHTML='<div class="day-title">Dia '+d+'/'+REPORT_MONTH+'/'+REPORT_YEAR+'</div><div class="day-no-data">Sem faturamento registrado</div>';
 }
 detail.className='day-detail visible';
 }
 
 function renderDailySalesChart(){
+var label=document.getElementById('chart-month-label');
+if(label) label.textContent=MONTH_NAMES[chartMonth-1]+' '+chartYear;
 var svg=document.getElementById('daily-sales-chart');
 var trendSummary=document.getElementById('chart-trend-summary');
 if(!svg) return;
 
-var yr=${year},mo=${month};
-var periodo='${periodoRelatorio}';
+var yr=chartYear,mo=chartMonth;
 var now=new Date();
 var isCurrentMonth=now.getFullYear()===yr && (now.getMonth()+1)===mo;
 var lastDay=new Date(yr,mo,0).getDate();
@@ -307,7 +360,7 @@ var lastDay=new Date(yr,mo,0).getDate();
 var cutoffDate;
 if(isCurrentMonth){
   var td=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  cutoffDate=periodo==='manha'?new Date(td.getTime()-86400000):td;
+  cutoffDate=PERIODO==='manha'?new Date(td.getTime()-86400000):td;
 } else {
   cutoffDate=new Date(yr,mo,0);
 }
@@ -347,7 +400,7 @@ function xAt(i){
   return left+(i*(chartW/(points.length-1)));
 }
 function yAt(v){return top+((maxVal-v)/maxVal)*chartH;}
-function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
 
 var trendClass='flat';
 var trendLabel='estável';
@@ -384,7 +437,6 @@ if(points.length>=2){
     endY=clamp(midY+((endYRaw-midY)*ampFactor),top,top+chartH);
   }
   trendPath='M '+xAt(0)+' '+startY+' L '+xAt(n-1)+' '+endY;
-
   var avgVal=sumY/n;
   var slopePctPerDay=avgVal>0?(slope/avgVal)*100:0;
   var deltaPct=avgVal>0?((endVal-startVal)/avgVal)*100:0;
@@ -409,7 +461,7 @@ if(points.length>=2){
   trendMeta='(inclinação '+slopePctPerDay.toFixed(3).replace('.',',')+'%/dia útil | variação '+deltaPct.toFixed(2).replace('.',',')+'%'+ampText+')';
 }
 if(trendSummary){
-  trendSummary.innerHTML='Tendência do período: <strong>'+trendLabel+'</strong>. <span class="trend-meta">'+trendMeta+'</span>';
+  trendSummary.innerHTML='Tendência de <strong>'+MONTH_NAMES[mo-1]+' '+yr+'</strong>: <strong>'+trendLabel+'</strong>. <span class="trend-meta">'+trendMeta+'</span>';
 }
 
 var yTicks=4;
@@ -452,6 +504,67 @@ svg.innerHTML=''
   +(trendPath?'<path d="'+trendPath+'" class="chart-trend '+trendClass+'" />':'')
   +hitZones
   +xLabels;
+}
+
+function renderMonthlyChart(){
+  var svg=document.getElementById('monthly-chart');
+  var summary=document.getElementById('monthly-chart-summary');
+  if(!svg) return;
+  var monthTotals={};
+  fatDiario.forEach(function(f){
+    var p=f.data.split('-');var k=p[0]+'-'+p[1];
+    monthTotals[k]=(monthTotals[k]||0)+f.valor;
+  });
+  var months=Object.keys(monthTotals).sort();
+  if(months.length===0){
+    svg.innerHTML='<text x="500" y="110" text-anchor="middle" class="chart-label">Sem dados para comparativo mensal</text>';
+    if(summary) summary.textContent='Sem dados registrados.';
+    return;
+  }
+  var w=1000,h=220,left=60,right=20,top=20,bottom=42;
+  var chartW=w-left-right,chartH=h-top-bottom;
+  var n=months.length;
+  var barW=Math.min(80,Math.floor(chartW/n*0.6));
+  var maxVal=1;
+  months.forEach(function(k){if(monthTotals[k]>maxVal)maxVal=monthTotals[k];});
+  var curKey=REPORT_YEAR+'-'+(REPORT_MONTH<10?'0'+REPORT_MONTH:''+REPORT_MONTH);
+  monthTipLabels=[];
+  months.forEach(function(k){
+    var parts=k.split('-');
+    monthTipLabels.push(MONTH_NAMES[+parts[1]-1]+' '+parts[0]+': '+fmt(monthTotals[k]));
+  });
+  var yTicks=4,grid='';
+  for(var t=0;t<=yTicks;t++){
+    var yg=top+(t*(chartH/yTicks));
+    var vg=maxVal-(t*(maxVal/yTicks));
+    grid+='<line x1="'+left+'" y1="'+yg+'" x2="'+(w-right)+'" y2="'+yg+'" class="chart-grid" />';
+    grid+='<text x="'+(left-6)+'" y="'+(yg+3)+'" text-anchor="end" class="chart-label">'+(vg===0?'0':Math.round(vg/1000)+'k')+'</text>';
+  }
+  var bars='',xLabels='',valLabels='';
+  months.forEach(function(k,i){
+    var x=left+(i+0.5)*(chartW/n);
+    var val=monthTotals[k];
+    var bh=Math.max(2,(val/maxVal)*chartH);
+    var y=top+chartH-bh;
+    var isCur=k===curKey;
+    var color=isCur?'#2563eb':'#93c5fd';
+    var parts=k.split('-');
+    var lbl=MONTH_NAMES[+parts[1]-1].substring(0,3)+'/'+parts[0].substring(2);
+    bars+='<rect x="'+(x-barW/2)+'" y="'+y+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+color+'" opacity="0.9" onmouseover="showTip(event,monthTipLabels['+i+'])" onmouseout="hideTip()" style="cursor:pointer" />';
+    xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" style="font-size:9px;fill:'+(isCur?'#2563eb':'#64748b')+';font-weight:'+(isCur?'700':'400')+'">'+lbl+'</text>';
+    if(val>0) valLabels+='<text x="'+x+'" y="'+(y-4)+'" text-anchor="middle" style="font-size:9px;fill:#334155">'+Math.round(val/1000)+'k</text>';
+  });
+  svg.innerHTML=''
+    +'<line x1="'+left+'" y1="'+(top+chartH)+'" x2="'+(w-right)+'" y2="'+(top+chartH)+'" class="chart-axis" />'
+    +grid+bars+xLabels+valLabels;
+  if(summary){
+    var total=months.reduce(function(s,k){return s+monthTotals[k];},0);
+    var avg=total/months.length;
+    var best=months[0];
+    months.forEach(function(k){if(monthTotals[k]>monthTotals[best])best=k;});
+    var bestParts=best.split('-');
+    summary.innerHTML='<strong>'+months.length+' meses</strong> registrados. Média mensal: <strong>'+fmt(avg)+'</strong>. Melhor mês: <strong>'+MONTH_NAMES[+bestParts[1]-1]+'/'+bestParts[0]+'</strong> ('+fmt(monthTotals[best])+').';
+  }
 }
 
 renderCalendar();
