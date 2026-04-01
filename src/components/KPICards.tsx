@@ -14,6 +14,7 @@ interface KPICardsProps {
   mes: string;
   faturamentoDiario: FaturamentoDia[];
   classificacoes: Record<string, string>;
+  feriadosPersonalizados?: string[];
 }
 
 export function KPICards({
@@ -25,6 +26,7 @@ export function KPICards({
   mes,
   faturamentoDiario,
   classificacoes,
+  feriadosPersonalizados,
 }: KPICardsProps) {
   const [year, month] = mes.split('-').map(Number);
 
@@ -75,14 +77,14 @@ export function KPICards({
   // Projeção = média diária × dias úteis do mês
   const diasComFat = fatDiarioDoMes.length;
   const mediaDiaria = diasComFat > 0 ? totalFaturamento / diasComFat : 0;
-  const diasUteisMes = getBusinessDaysInMonth(mes);
+  const diasUteisMes = getBusinessDaysInMonth(mes, feriadosPersonalizados);
   const projecao = mediaDiaria * diasUteisMes;
 
   // % Comparativo Meta
   const pctFatMeta = meta > 0 ? ((totalFaturamento - meta) / meta) * 100 : 0;
 
   // Dias úteis
-  const diasUteisFaltantes = getRemainingBusinessDays(mes, periodoRelatorio);
+  const diasUteisFaltantes = getRemainingBusinessDays(mes, periodoRelatorio, feriadosPersonalizados);
 
   // Objetivo diário
   const diasParaObjetivo = diasUteisFaltantes;

@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { getDaysInMonth, formatCurrency } from '@/lib/dashboard-store';
+import { isHoliday } from '@/lib/holidays';
 import type { FaturamentoDia } from '@/types/faturamento';
 import { ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 
@@ -8,11 +9,13 @@ interface MonthCalendarProps {
   faturamentoDiario: FaturamentoDia[];
   onMonthChange: (newMonth: string) => void;
   onDayUpload: (date: string, file: File) => void;
+  onRemoveFeriado?: (date: string) => void;
+  feriadosPersonalizados?: string[];
 }
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onDayUpload }: MonthCalendarProps) {
+export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onDayUpload, onRemoveFeriado, feriadosPersonalizados }: MonthCalendarProps) {
   const days = getDaysInMonth(yearMonth);
   const firstDayOfWeek = days[0].getDay();
   const today = new Date();
@@ -96,31 +99,49 @@ export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onD
           const isWeekend = day.getDay() === 0 || day.getDay() === 6;
           const isPast = day < today;
           const hasFat = fat > 0;
+          const isCustomHoliday = !!(feriadosPersonalizados && feriadosPersonalizados.includes(key));
+          const isNationalHoliday = isHoliday(day);
 
           return (
             <div
               key={key}
               onClick={() => handleDayClick(key)}
-              title={`Clique para importar pedidos em ${day.getDate()}/${month}/${year}`}
+              onContextMenu={(e) => {
+                if (isCustomHoliday && onRemoveFeriado) {
+                  e.preventDefault();
+                  onRemoveFeriado(key);
+                }
+              }}
+              title={
+                isCustomHoliday
+                  ? `Feriado local — clique direito para remover`
+                  : isNationalHoliday
+                  ? `Feriado nacional`
+                  : `Clique para importar planilha em ${day.getDate()}/${month}/${year}`
+              }
               className={`
                 rounded-lg p-1.5 text-center min-h-[56px] flex flex-col justify-between border transition-colors cursor-pointer
                 hover:border-primary/40 hover:bg-primary/5
                 ${isToday ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-transparent'}
-                ${isWeekend ? 'bg-muted/50' : ''}
+                ${isCustomHoliday ? 'bg-orange-500/10 border-orange-400/40' : isNationalHoliday ? 'bg-red-500/8' : isWeekend ? 'bg-muted/50' : ''}
                 ${hasFat ? 'bg-success/8' : ''}
-                ${isPast && !hasFat && !isWeekend ? 'opacity-50' : ''}
+                ${isPast && !hasFat && !isWeekend && !isCustomHoliday && !isNationalHoliday ? 'opacity-50' : ''}
               `}
             >
               <div className="flex items-center justify-center gap-0.5">
-                <div className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                <div className={`text-xs font-medium ${isToday ? 'text-primary' : isCustomHoliday ? 'text-orange-500' : isNationalHoliday ? 'text-red-500' : 'text-foreground'}`}>
                   {day.getDate()}
                 </div>
-                <Upload className="w-2.5 h-2.5 text-muted-foreground/40" />
+                {!isCustomHoliday && !isNationalHoliday && <Upload className="w-2.5 h-2.5 text-muted-foreground/40" />}
+                {(isCustomHoliday || isNationalHoliday) && <span className="text-[8px]">🏖</span>}
               </div>
               {hasFat && (
                 <div className="text-[9px] font-bold text-success font-mono">
                   {formatCurrency(fat)}
                 </div>
+              )}
+              {isCustomHoliday && !hasFat && (
+                <div className="text-[8px] text-orange-400 font-medium">feriado</div>
               )}
             </div>
           );

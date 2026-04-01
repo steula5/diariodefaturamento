@@ -27,6 +27,7 @@ export interface DashboardData {
   observacoes?: Record<string, string>;
   classificacoes?: Record<string, string>; // 'a' = aprovado mês atual, 'p' = próximo mês
   ordenacaoPedidos?: string[]; // custom order for all pedidos (documento IDs)
+  feriadosPersonalizados?: string[]; // YYYY-MM-DD custom/local holidays
 }
 
 // Orçamento types

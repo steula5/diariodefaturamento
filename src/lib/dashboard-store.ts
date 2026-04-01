@@ -83,14 +83,15 @@ function generateStandaloneHTML(data: DashboardData): string {
   const totalFaturamento = fatDiarioDoMes.reduce((s, f) => s + f.valor, 0);
   const diasComFat = fatDiarioDoMes.length;
   const mediaDiaria = diasComFat > 0 ? totalFaturamento / diasComFat : 0;
-  const diasUteisMes = getBusinessDaysInMonth(data.mes);
+  const diasUteisMes = getBusinessDaysInMonth(data.mes, data.feriadosPersonalizados);
   const projecao = mediaDiaria * diasUteisMes;
-  const diasUteisFaltantes = getRemainingBusinessDays(data.mes, periodoRelatorio);
+  const diasUteisFaltantes = getRemainingBusinessDays(data.mes, periodoRelatorio, data.feriadosPersonalizados);
   const objetivoDiario = diasUteisFaltantes > 0 ? (data.meta - totalFaturamento) / diasUteisFaltantes : 0;
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   const fatDiarioJSON = JSON.stringify(data.faturamentoDiario);
+  const feriadosJSON = JSON.stringify(data.feriadosPersonalizados || []);
 
   // Build sorted orders using custom order if available
   let sortedPedidos: Pedido[];
@@ -156,6 +157,7 @@ tr:hover{background:#f8fafc}
 .cal-day:hover{border-color:#2563eb;background:#eff6ff}
 .cal-day.today{border-color:#2563eb;background:#eff6ff;box-shadow:0 0 0 2px rgba(37,99,235,.15)}
 .cal-day.weekend{background:#f8fafc}
+.cal-day.feriado{background:#fff7ed;border-color:#fed7aa}
 .cal-day.has-fat{background:#ecfdf5}
 .cal-day .fat-val{font-size:.5rem;font-weight:700;color:#10b981;font-family:'Courier New',monospace;word-break:break-all}
 .cal-day.selected{border-color:#2563eb;background:#dbeafe;box-shadow:0 0 0 2px rgba(37,99,235,.25)}
@@ -233,6 +235,7 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 </div>
 <script>
 var fatDiario=${fatDiarioJSON};
+var feriadosPersonalizados=${feriadosJSON};
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 var selectedDay=null;
@@ -261,12 +264,14 @@ var fat=fatMap.get(key)||0;
 if(fat>0){total+=fat;count++}
 var isToday=dt.getTime()===today.getTime();
 var isWknd=dt.getDay()===0||dt.getDay()===6;
+var isFeriado=feriadosPersonalizados.includes(key);
 var cls=['cal-day'];
 if(isToday)cls.push('today');
 if(isWknd)cls.push('weekend');
+if(isFeriado)cls.push('feriado');
 if(fat>0)cls.push('has-fat');
 if(selectedDay===d)cls.push('selected');
-html+='<div class="'+cls.join(' ')+'" onclick="selectDay('+d+','+fat+')"><div>'+d+'</div>'+(fat>0?'<div class="fat-val">'+fmt(fat)+'</div>':'')+'</div>';
+html+='<div class="'+cls.join(' ')+'" onclick="selectDay('+d+','+fat+')"><div style="'+(isFeriado?'color:#f97316':'')+'">'+d+(isFeriado?' 🏖':'')+'</div>'+(fat>0?'<div class="fat-val">'+fmt(fat)+'</div>':'')+'</div>';
 }
 html+='</div>';
 cal.innerHTML=html;

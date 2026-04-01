@@ -15,7 +15,7 @@ import {
   getDefaultReportPeriod,
 } from '@/lib/dashboard-store';
 import { parseExcelFile } from '@/lib/excel-parser';
-import { parseDailyReport } from '@/lib/daily-report-parser';
+import { parseDailyReport, isFeriadoFile } from '@/lib/daily-report-parser';
 import type { DashboardData, Pedido, FaturamentoDia, ReportPeriod } from '@/types/faturamento';
 import { Download, Upload, Trash2, FileSpreadsheet, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -98,13 +98,31 @@ const Index = () => {
   const handleDayUpload = useCallback(async (dateKey: string, file: File) => {
     try {
       const buffer = await file.arrayBuffer();
+      const [y, m, d] = dateKey.split('-');
+      const calendarDate = `${d}/${m}/${y}`;
+
+      // Check if this is a holiday marker file
+      if (isFeriadoFile(buffer)) {
+        setData(prev => {
+          const existing = prev.feriadosPersonalizados || [];
+          if (existing.includes(dateKey)) {
+            toast.info(`${calendarDate} já está marcado como feriado.`);
+            return prev;
+          }
+          toast.success(`Feriado registrado em ${calendarDate}.`);
+          return {
+            ...prev,
+            feriadosPersonalizados: [...existing, dateKey],
+          };
+        });
+        return;
+      }
+
       const valor = parseDailyReport(buffer);
       if (valor <= 0) {
         toast.error('Valor do faturamento não encontrado no relatório.');
         return;
       }
-      const [y, m, d] = dateKey.split('-');
-      const calendarDate = `${d}/${m}/${y}`;
 
       setData(prev => {
         // Remove any previous daily report entry for this day
@@ -235,6 +253,17 @@ const Index = () => {
     setData(prev => ({ ...prev, periodoRelatorio }));
   }, []);
 
+  const handleRemoveFeriado = useCallback((dateKey: string) => {
+    setData(prev => {
+      const [y, m, d] = dateKey.split('-');
+      toast.success(`Feriado removido em ${d}/${m}/${y}.`);
+      return {
+        ...prev,
+        feriadosPersonalizados: (prev.feriadosPersonalizados || []).filter(k => k !== dateKey),
+      };
+    });
+  }, []);
+
   const [year, month] = data.mes.split('-').map(Number);
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -333,7 +362,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-fade-in">
           {/* Left: KPIs */}
           <div className="lg:col-span-2 space-y-4">
-            <KPICards pedidos={data.pedidos} meta={data.meta} onMetaChange={handleMetaChange} periodoRelatorio={data.periodoRelatorio || getDefaultReportPeriod()} onPeriodoRelatorioChange={handlePeriodoRelatorioChange} mes={data.mes} faturamentoDiario={data.faturamentoDiario} classificacoes={data.classificacoes || {}} />
+            <KPICards pedidos={data.pedidos} meta={data.meta} onMetaChange={handleMetaChange} periodoRelatorio={data.periodoRelatorio || getDefaultReportPeriod()} onPeriodoRelatorioChange={handlePeriodoRelatorioChange} mes={data.mes} faturamentoDiario={data.faturamentoDiario} classificacoes={data.classificacoes || {}} feriadosPersonalizados={data.feriadosPersonalizados} />
             
             <DailySalesChart faturamentoDiario={data.faturamentoDiario} mes={data.mes} />
           </div>
@@ -345,6 +374,8 @@ const Index = () => {
               faturamentoDiario={data.faturamentoDiario}
               onMonthChange={handleMonthChange}
               onDayUpload={handleDayUpload}
+              onRemoveFeriado={handleRemoveFeriado}
+              feriadosPersonalizados={data.feriadosPersonalizados}
             />
           </div>
 

@@ -1,6 +1,21 @@
 import * as XLSX from 'xlsx';
 
 /**
+ * Detects whether an uploaded file is a holiday marker.
+ * Returns true if cell A1 contains exactly "feriado" (case-insensitive).
+ */
+export function isFeriadoFile(data: ArrayBuffer): boolean {
+  try {
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const cell = sheet['A1'];
+    return !!(cell && String(cell.v).trim().toLowerCase() === 'feriado');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Parses a daily CFOP summary report (e.g., "11-03.xlsx").
  * Reads the last data row (Total...) and calculates:
  * Value = TOTAL - IPI - ICMS (columns detected by header name, with fallback to fixed positions)

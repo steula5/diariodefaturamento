@@ -59,28 +59,29 @@ function getHolidaysForYear(year: number): Set<string> {
   return holidays;
 }
 
-export function isHoliday(date: Date): boolean {
+export function isHoliday(date: Date, customHolidays?: string[]): boolean {
   const key = date.toISOString().split('T')[0];
+  if (customHolidays && customHolidays.includes(key)) return true;
   return getHolidaysForYear(date.getFullYear()).has(key);
 }
 
-export function isBusinessDay(date: Date): boolean {
+export function isBusinessDay(date: Date, customHolidays?: string[]): boolean {
   const dow = date.getDay();
-  return dow !== 0 && dow !== 6 && !isHoliday(date);
+  return dow !== 0 && dow !== 6 && !isHoliday(date, customHolidays);
 }
 
-export function getBusinessDaysInMonth(yearMonth: string): number {
+export function getBusinessDaysInMonth(yearMonth: string, customHolidays?: string[]): number {
   const [year, month] = yearMonth.split('-').map(Number);
   let count = 0;
   const date = new Date(year, month - 1, 1);
   while (date.getMonth() === month - 1) {
-    if (isBusinessDay(date)) count++;
+    if (isBusinessDay(date, customHolidays)) count++;
     date.setDate(date.getDate() + 1);
   }
   return count;
 }
 
-export function getRemainingBusinessDays(yearMonth: string, reportPeriod: ReportPeriod = 'tarde'): number {
+export function getRemainingBusinessDays(yearMonth: string, reportPeriod: ReportPeriod = 'tarde', customHolidays?: string[]): number {
   const [year, month] = yearMonth.split('-').map(Number);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -88,7 +89,7 @@ export function getRemainingBusinessDays(yearMonth: string, reportPeriod: Report
   const date = new Date(year, month - 1, 1);
   while (date.getMonth() === month - 1) {
     const isToday = date.getTime() === today.getTime();
-    if (isBusinessDay(date) && (date > today || (reportPeriod === 'manha' && isToday))) count++;
+    if (isBusinessDay(date, customHolidays) && (date > today || (reportPeriod === 'manha' && isToday))) count++;
     date.setDate(date.getDate() + 1);
   }
   return count;
