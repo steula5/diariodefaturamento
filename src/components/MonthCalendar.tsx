@@ -9,13 +9,13 @@ interface MonthCalendarProps {
   faturamentoDiario: FaturamentoDia[];
   onMonthChange: (newMonth: string) => void;
   onDayUpload: (date: string, file: File) => void;
-  onRemoveFeriado?: (date: string) => void;
+  onClearDay?: (date: string) => void;
   feriadosPersonalizados?: string[];
 }
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onDayUpload, onRemoveFeriado, feriadosPersonalizados }: MonthCalendarProps) {
+export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onDayUpload, onClearDay, feriadosPersonalizados }: MonthCalendarProps) {
   const days = getDaysInMonth(yearMonth);
   const firstDayOfWeek = days[0].getDay();
   const today = new Date();
@@ -101,20 +101,21 @@ export function MonthCalendar({ yearMonth, faturamentoDiario, onMonthChange, onD
           const hasFat = fat > 0;
           const isCustomHoliday = !!(feriadosPersonalizados && feriadosPersonalizados.includes(key));
           const isNationalHoliday = isHoliday(day);
+          const canClearDay = hasFat || isCustomHoliday;
 
           return (
             <div
               key={key}
               onClick={() => handleDayClick(key)}
               onContextMenu={(e) => {
-                if (isCustomHoliday && onRemoveFeriado) {
+                if (canClearDay && onClearDay) {
                   e.preventDefault();
-                  onRemoveFeriado(key);
+                  onClearDay(key);
                 }
               }}
               title={
-                isCustomHoliday
-                  ? `Feriado local — clique direito para remover`
+                canClearDay
+                  ? `Clique para importar planilha | clique direito para limpar o dia`
                   : isNationalHoliday
                   ? `Feriado nacional`
                   : `Clique para importar planilha em ${day.getDate()}/${month}/${year}`

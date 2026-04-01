@@ -261,13 +261,28 @@ const Index = () => {
     setData(prev => ({ ...prev, periodoRelatorio }));
   }, []);
 
-  const handleRemoveFeriado = useCallback((dateKey: string) => {
+  const handleClearDay = useCallback((dateKey: string) => {
     setData(prev => {
       const [y, m, d] = dateKey.split('-');
-      toast.success(`Feriado removido em ${d}/${m}/${y}.`);
+      const calendarDate = `${d}/${m}/${y}`;
+      const dailyDocId = `FAT-${dateKey}`;
+      const hadFaturamento = prev.pedidos.some(p => p.documento === dailyDocId);
+      const hadFeriado = (prev.feriadosPersonalizados || []).includes(dateKey);
+
+      if (!hadFaturamento && !hadFeriado) {
+        toast.info(`Nada para limpar em ${calendarDate}.`);
+        return prev;
+      }
+
+      const pedidosAtualizados = prev.pedidos.filter(p => p.documento !== dailyDocId);
+      const feriadosAtualizados = (prev.feriadosPersonalizados || []).filter(k => k !== dateKey);
+
+      toast.success(`Dia ${calendarDate} limpo com sucesso.`);
       return {
         ...prev,
-        feriadosPersonalizados: (prev.feriadosPersonalizados || []).filter(k => k !== dateKey),
+        pedidos: pedidosAtualizados,
+        faturamentoDiario: buildFaturamentoDiario(pedidosAtualizados),
+        feriadosPersonalizados: feriadosAtualizados,
       };
     });
   }, []);
@@ -382,7 +397,7 @@ const Index = () => {
               faturamentoDiario={data.faturamentoDiario}
               onMonthChange={handleMonthChange}
               onDayUpload={handleDayUpload}
-              onRemoveFeriado={handleRemoveFeriado}
+              onClearDay={handleClearDay}
               feriadosPersonalizados={data.feriadosPersonalizados}
             />
           </div>
