@@ -1,5 +1,5 @@
 import type { DashboardData, Pedido, ReportPeriod } from '@/types/faturamento';
-import { getBusinessDaysInMonth, getRemainingBusinessDays } from '@/lib/holidays';
+import { getBusinessDaysInMonth, getRemainingBusinessDays, isHoliday } from '@/lib/holidays';
 
 const STORAGE_KEY = 'faturamento_dashboard';
 
@@ -92,6 +92,21 @@ function generateStandaloneHTML(data: DashboardData): string {
 
   const fatDiarioJSON = JSON.stringify(data.faturamentoDiario);
   const feriadosJSON = JSON.stringify(data.feriadosPersonalizados || []);
+  const yearsInReport = new Set<number>([year]);
+  data.faturamentoDiario.forEach(f => {
+    yearsInReport.add(Number(f.data.split('-')[0]));
+  });
+  const feriadosNacionais = new Set<string>();
+  yearsInReport.forEach(reportYear => {
+    const date = new Date(reportYear, 0, 1);
+    while (date.getFullYear() === reportYear) {
+      if (isHoliday(date)) {
+        feriadosNacionais.add(date.toISOString().split('T')[0]);
+      }
+      date.setDate(date.getDate() + 1);
+    }
+  });
+  const feriadosNacionaisJSON = JSON.stringify(Array.from(feriadosNacionais));
 
   // Build sorted orders using custom order if available
   let sortedPedidos: Pedido[];
@@ -265,6 +280,7 @@ ${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</d
 <script>
 var fatDiario=${fatDiarioJSON};
 var feriadosPersonalizados=${feriadosJSON};
+var feriadosNacionais=${feriadosNacionaisJSON};
 var MONTH_NAMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var REPORT_YEAR=${year},REPORT_MONTH=${month},PERIODO='${periodoRelatorio}';
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
@@ -275,6 +291,7 @@ var monthTipLabels=[];
 var tip=null;
 var chartYear=REPORT_YEAR,chartMonth=REPORT_MONTH;
 var calendarYear=REPORT_YEAR,calendarMonth=REPORT_MONTH;
+var allHolidays=feriadosPersonalizados.concat(feriadosNacionais.filter(function(d){return feriadosPersonalizados.indexOf(d)===-1;}));
 var availableMonths=(function(){
   var seen={},list=[];
   fatDiario.forEach(function(f){
@@ -341,7 +358,7 @@ var fat=fatMap.get(key)||0;
 if(fat>0){total+=fat;count++}
 var isToday=dt.getTime()===today.getTime();
 var isWknd=dt.getDay()===0||dt.getDay()===6;
-var isFeriado=feriadosPersonalizados.includes(key);
+var isFeriado=allHolidays.includes(key);
 var cls=['cal-day'];
 if(isToday)cls.push('today');
 if(isWknd)cls.push('weekend');
@@ -402,7 +419,7 @@ for(var d=1;d<=lastDay;d++){
   var wk=dt.getDay();
   if(wk===0||wk===6) continue;
   var dtKey=dt.toISOString().split('T')[0];
-  if(feriadosPersonalizados.includes(dtKey)) continue;
+  if(allHolidays.includes(dtKey)) continue;
   if(dt>cutoffDate) continue;
   points.push({day:d,value:fatMap.get(d)||0});
 }
