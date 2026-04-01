@@ -217,16 +217,16 @@ tr:hover{background:#f8fafc}
 <body>
 <div class="container">
 <h1>Diário de Faturamento</h1>
-<p class="subtitle">${monthNames[month - 1]} ${year} — Relatório Gerencial (${periodoRelatorioLabel})</p>
+<p id="report-subtitle" class="subtitle">${monthNames[month - 1]} ${year} — Relatório Gerencial (${periodoRelatorioLabel})</p>
 
 <div class="grid grid-kpi">
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><div class="card-value text-primary">${fmt(data.meta)}</div></div>` : ''}
 <div class="card border-l-accent"><div class="card-label">Despacho Aprovado</div><div class="card-value text-primary">${fmt(totalDespacho)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosMesAtual.length} pedidos</div></div>
 <div class="card border-l-warning" style="background:#fffbeb"><div class="card-label">Próximos Despachos</div><div class="card-value text-warning">${fmt(totalProximoMes)}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${pedidosProximoMes.length} pedidos</div></div>
-<div class="card border-l-success"><div class="card-label">Faturamento</div><div class="card-value text-success">${fmt(totalFaturamento)}</div></div>
-${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes</div></div>` : ''}
-<div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div class="card-value text-warning">${diasUteisFaltantes}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
-<div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div class="card-value text-info" style="font-size:.9rem;line-height:1.3">${fmt(projecao)}</div>${diasComFat > 0 ? `<div style="font-size:.7rem;color:#64748b;margin-top:2px">Média: ${fmt(mediaDiaria)} × ${diasUteisMes} dias</div>` : ''}</div>
+<div class="card border-l-success"><div class="card-label">Faturamento</div><div id="kpi-faturamento" class="card-value text-success">${fmt(totalFaturamento)}</div></div>
+${data.meta > 0 ? `<div class="card"><div class="card-label">Objetivo Diário</div><div id="kpi-objetivo" class="card-value text-warning">${fmt(Math.max(0, objetivoDiario))}</div><div id="kpi-objetivo-meta" style="font-size:.7rem;color:#64748b;margin-top:2px">${diasUteisFaltantes} dias úteis restantes</div></div>` : ''}
+<div class="card border-l-warning" style="background:#fef3c7"><div class="card-label">Dias Úteis Restantes</div><div id="kpi-dias-restantes" class="card-value text-warning">${diasUteisFaltantes}</div><div style="font-size:.7rem;color:#64748b;margin-top:2px">dias para faturar este mês</div></div>
+<div class="card border-l-info"><div class="card-label">Projeção de Faturamento</div><div id="kpi-projecao" class="card-value text-info" style="font-size:.9rem;line-height:1.3">${fmt(projecao)}</div><div id="kpi-projecao-meta" style="font-size:.7rem;color:#64748b;margin-top:2px">${diasComFat > 0 ? `Média: ${fmt(mediaDiaria)} × ${diasUteisMes} dias` : ''}</div></div>
 </div>
 
 <div class="card" style="margin-bottom:20px">
@@ -290,6 +290,7 @@ var feriadosPersonalizados=${feriadosJSON};
 var feriadosNacionais=${feriadosNacionaisJSON};
 var MONTH_NAMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var REPORT_YEAR=${year},REPORT_MONTH=${month},PERIODO='${periodoRelatorio}';
+var REPORT_META=${data.meta};
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 var selectedDay=null;
@@ -341,7 +342,76 @@ function changeCalendarMonth(dir){
   selectedDay=null;
   var detail=document.getElementById('day-detail');
   if(detail) detail.className='day-detail';
+  updateMonthCards();
   renderCalendar();
+}
+
+function getMonthKey(year,month){
+  return year+'-'+String(month).padStart(2,'0');
+}
+
+function getMonthStats(year,month){
+  var monthKey=getMonthKey(year,month);
+  var totalFaturamento=0;
+  var diasComFat=0;
+  fatDiario.forEach(function(f){
+    if(f.data.slice(0,7)===monthKey){
+      totalFaturamento+=f.valor;
+      diasComFat+=1;
+    }
+  });
+
+  var diasUteisMes=0;
+  var diasUteisFaltantes=0;
+  var now=new Date();
+  now.setHours(0,0,0,0);
+  var date=new Date(year,month-1,1);
+  while(date.getMonth()===month-1){
+    var dow=date.getDay();
+    var key=date.toISOString().split('T')[0];
+    var isBusiness=dow!==0&&dow!==6&&!allHolidays.includes(key);
+    if(isBusiness){
+      diasUteisMes+=1;
+      var isToday=date.getTime()===now.getTime();
+      if(date>now || (PERIODO==='manha' && isToday)) diasUteisFaltantes+=1;
+    }
+    date.setDate(date.getDate()+1);
+  }
+
+  var mediaDiaria=diasComFat>0?totalFaturamento/diasComFat:0;
+  var projecao=mediaDiaria*diasUteisMes;
+  var objetivoDiario=diasUteisFaltantes>0?(REPORT_META-totalFaturamento)/diasUteisFaltantes:0;
+  return {
+    totalFaturamento: totalFaturamento,
+    diasComFat: diasComFat,
+    diasUteisMes: diasUteisMes,
+    diasUteisFaltantes: diasUteisFaltantes,
+    mediaDiaria: mediaDiaria,
+    projecao: projecao,
+    objetivoDiario: objetivoDiario,
+  };
+}
+
+function updateMonthCards(){
+  var stats=getMonthStats(calendarYear,calendarMonth);
+  var subtitle=document.getElementById('report-subtitle');
+  if(subtitle) subtitle.textContent=MONTH_NAMES[calendarMonth-1]+' '+calendarYear+' — Relatório Gerencial (${periodoRelatorioLabel})';
+  var faturamento=document.getElementById('kpi-faturamento');
+  if(faturamento) faturamento.textContent=fmt(stats.totalFaturamento);
+  var objetivo=document.getElementById('kpi-objetivo');
+  if(objetivo) objetivo.textContent=fmt(Math.max(0,stats.objetivoDiario));
+  var objetivoMeta=document.getElementById('kpi-objetivo-meta');
+  if(objetivoMeta) objetivoMeta.textContent=stats.diasUteisFaltantes+' dias úteis restantes';
+  var diasRestantes=document.getElementById('kpi-dias-restantes');
+  if(diasRestantes) diasRestantes.textContent=String(stats.diasUteisFaltantes);
+  var projecao=document.getElementById('kpi-projecao');
+  if(projecao) projecao.textContent=fmt(stats.projecao);
+  var projecaoMeta=document.getElementById('kpi-projecao-meta');
+  if(projecaoMeta) {
+    projecaoMeta.textContent=stats.diasComFat>0
+      ? 'Média: '+fmt(stats.mediaDiaria)+' × '+stats.diasUteisMes+' dias'
+      : '';
+  }
 }
 
 function renderCalendar(){
@@ -616,6 +686,7 @@ function renderMonthlyChart(){
   }
 }
 
+updateMonthCards();
 renderCalendar();
 renderDailySalesChart();
 </script>
