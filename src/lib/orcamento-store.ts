@@ -341,11 +341,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
   const totalConvertidos = orcamentosConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
   const totalFaturado = data.totalFaturado ?? 0;
-  const totalPVConcretizado = data.totalPedidosConcretizados ?? 0;
-  const pvInformado = data.totalPedidosConcretizados !== undefined;
-  const pvVsOrc = totalOrcamentos > 0 ? (totalPVConcretizado / totalOrcamentos) * 100 : 0;
-  const pvVsFaturado = totalFaturado > 0 ? (totalPVConcretizado / totalFaturado) * 100 : 0;
-  const gapPvParaOrc = totalPVConcretizado - totalOrcamentos;
+  const pvFaturadoVsOrc = totalOrcamentos > 0 ? (totalFaturado / totalOrcamentos) * 100 : 0;
+  const gapPvFaturadoParaOrc = totalFaturado - totalOrcamentos;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -399,27 +396,24 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
         </div>
       </div>
 
-      ${pvInformado ? `
-      <h2>Comparativo PV (manual)</h2>
+      <h2>Comparativo de PV Faturado</h2>
       <div class="summary" style="grid-template-columns: repeat(3, 1fr); margin-top: 10px;">
         <div class="card">
-          <h3>Total PV no Período</h3>
-          <div class="value" style="color: #0891b2;">${formatCurrency(totalPVConcretizado)}</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">Valor informado manualmente</p>
+          <h3>PV Faturado no Período</h3>
+          <div class="value" style="color: #0891b2;">${formatCurrency(totalFaturado)}</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">Valor informado no painel</p>
         </div>
         <div class="card">
-          <h3>PV vs Pipeline OR</h3>
-          <div class="value" style="color: ${pvVsOrc >= 100 ? '#16a34a' : pvVsOrc >= 70 ? '#ca8a04' : '#dc2626'};">${pvVsOrc.toFixed(1)}%</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">PVs em relação ao total de OR</p>
+          <h3>PV Faturado vs Pipeline OR</h3>
+          <div class="value" style="color: ${pvFaturadoVsOrc >= 100 ? '#16a34a' : pvFaturadoVsOrc >= 70 ? '#ca8a04' : '#dc2626'};">${pvFaturadoVsOrc.toFixed(1)}%</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">PV faturado em relação ao total de OR</p>
         </div>
         <div class="card">
-          <h3>PV - Pipeline OR</h3>
-          <div class="value" style="color: ${gapPvParaOrc >= 0 ? '#16a34a' : '#dc2626'};">${gapPvParaOrc >= 0 ? '+' : ''}${formatCurrency(gapPvParaOrc)}</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">Diferença absoluta de PV para OR</p>
+          <h3>PV Faturado - Pipeline OR</h3>
+          <div class="value" style="color: ${gapPvFaturadoParaOrc >= 0 ? '#16a34a' : '#dc2626'};">${gapPvFaturadoParaOrc >= 0 ? '+' : ''}${formatCurrency(gapPvFaturadoParaOrc)}</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">Diferença absoluta entre PV faturado e OR</p>
         </div>
       </div>
-      <div class="info" style="margin-top: 4px;">PV representa <strong>${pvVsFaturado.toFixed(1)}%</strong> do faturado no período.</div>
-      ` : ''}
 
       <h2>Orçamentos Não Convertidos - Inativos (${oportunidadesPerdidas.length})</h2>
       ${oportunidadesPerdidas.length > 0 ? `
