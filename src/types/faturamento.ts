@@ -61,4 +61,5 @@ export interface OrcamentoData {
   observacoes?: Record<string, string>;
   ordenacaoOrcamentos?: string[]; // custom order for all orcamentos (documento IDs)
   totalFaturado?: number; // total billed in the period (manually entered)
+  totalPedidosConcretizados?: number; // total of concretized orders (manually entered)
 }
