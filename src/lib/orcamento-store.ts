@@ -341,7 +341,7 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
   const totalConvertidos = orcamentosConvertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidos / totalOrcamentos) * 100 : 0;
   const totalFaturado = data.totalFaturado ?? 0;
-  const pvFaturadoVsOrConvertido = totalConvertidos > 0 ? (totalFaturado / totalConvertidos) * 100 : 0;
+  const origemEmOrcamentos = totalFaturado > 0 ? (totalConvertidos / totalFaturado) * 100 : 0;
   const gapPvFaturadoParaOrConvertido = totalFaturado - totalConvertidos;
 
   const htmlContent = `
@@ -404,9 +404,9 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
           <p style="font-size:11px;color:#666;margin-top:4px;">Valor informado no painel</p>
         </div>
         <div class="card">
-          <h3>PV Faturado vs OR Convertidos</h3>
-          <div class="value" style="color: ${pvFaturadoVsOrConvertido >= 100 ? '#16a34a' : pvFaturadoVsOrConvertido >= 70 ? '#ca8a04' : '#dc2626'};">${pvFaturadoVsOrConvertido.toFixed(1)}%</div>
-          <p style="font-size:11px;color:#666;margin-top:4px;">PV faturado em relação aos OR convertidos</p>
+          <h3>Origem em Orçamentos</h3>
+          <div class="value" style="color: ${origemEmOrcamentos >= 60 ? '#16a34a' : origemEmOrcamentos >= 30 ? '#ca8a04' : '#475569'};">${origemEmOrcamentos.toFixed(1)}%</div>
+          <p style="font-size:11px;color:#666;margin-top:4px;">${formatCurrency(totalConvertidos)} originados de ORC</p>
         </div>
         <div class="card">
           <h3>PV Faturado - OR Convertidos</h3>
