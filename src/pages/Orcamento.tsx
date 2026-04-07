@@ -192,7 +192,6 @@ const Orcamento = () => {
   const totalFaturado = data.totalFaturado ?? 0;
   const fatVsOrc = totalOrcamentos > 0 ? (totalFaturado / totalOrcamentos) * 100 : 0;
   const coberturaOrc = totalFaturado > 0 ? (totalConvertidosCalculado / totalFaturado) * 100 : 0;
-  const faturadoSemOrcamento = Math.max(0, totalFaturado - totalConvertidosCalculado);
   const difFaturadoVsOrConvertido = totalFaturado - totalConvertidosCalculado;
 
   return (
@@ -285,7 +284,7 @@ const Orcamento = () => {
         {totalFaturado > 0 && (
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Faturado vs Orçado</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Faturado vs Pipeline */}
               <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 min-w-0">
                 <div className="text-xs text-gray-600 truncate">PV Faturado vs Pipeline</div>
@@ -311,13 +310,6 @@ const Orcamento = () => {
                   coberturaOrc >= 60 ? 'text-green-600' : coberturaOrc >= 30 ? 'text-yellow-600' : 'text-slate-600'
                 }`}>{coberturaOrc.toFixed(1)}%</div>
                 <div className="text-xs text-gray-500 mt-1 truncate">{formatCurrency(totalConvertidosCalculado)} originados de ORC</div>
-              </div>
-
-              {/* Faturado sem orçamento */}
-              <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-orange-400 min-w-0">
-                <div className="text-xs text-gray-600 truncate">PV Faturado (outras origens)</div>
-                <div className="text-lg font-bold text-orange-600 truncate">{formatCurrency(faturadoSemOrcamento)}</div>
-                <div className="text-xs text-gray-500 mt-1 truncate">Não originados de ORC</div>
               </div>
 
               {/* Diferença Faturado - Orçado */}
