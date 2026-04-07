@@ -193,7 +193,7 @@ const Orcamento = () => {
   const fatVsOrc = totalOrcamentos > 0 ? (totalFaturado / totalOrcamentos) * 100 : 0;
   const coberturaOrc = totalFaturado > 0 ? (totalConvertidosCalculado / totalFaturado) * 100 : 0;
   const faturadoSemOrcamento = Math.max(0, totalFaturado - totalConvertidosCalculado);
-  const difFaturadoOrcado = totalFaturado - totalOrcamentos;
+  const difFaturadoVsOrConvertido = totalFaturado - totalConvertidosCalculado;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
@@ -322,22 +322,22 @@ const Orcamento = () => {
 
               {/* Diferença Faturado - Orçado */}
               <div className={`bg-white rounded-lg shadow-sm p-3 border-l-4 min-w-0 ${
-                difFaturadoOrcado >= 0 ? 'border-green-500' : 'border-red-400'
+                difFaturadoVsOrConvertido >= 0 ? 'border-green-500' : 'border-red-400'
               }`}>
-                <div className="text-xs text-gray-600 truncate">PV Faturado − Pipeline</div>
+                <div className="text-xs text-gray-600 truncate">PV Faturado − OR Convertidos</div>
                 <div className={`text-lg font-bold truncate ${
-                  difFaturadoOrcado >= 0 ? 'text-green-600' : 'text-red-600'
+                  difFaturadoVsOrConvertido >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  {difFaturadoOrcado >= 0 ? '+' : ''}{formatCurrency(difFaturadoOrcado)}
+                  {difFaturadoVsOrConvertido >= 0 ? '+' : ''}{formatCurrency(difFaturadoVsOrConvertido)}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
-                  {difFaturadoOrcado >= 0 ? (
+                  {difFaturadoVsOrConvertido >= 0 ? (
                     <TrendingUp className="w-3 h-3 text-green-500" />
                   ) : (
                     <TrendingDown className="w-3 h-3 text-red-500" />
                   )}
                   <span className="text-xs text-gray-500 truncate">
-                    {difFaturadoOrcado >= 0 ? 'PV faturado acima do pipeline' : 'PV faturado abaixo do pipeline'}
+                    {difFaturadoVsOrConvertido >= 0 ? 'PV faturado acima dos OR convertidos' : 'PV faturado abaixo dos OR convertidos'}
                   </span>
                 </div>
               </div>
