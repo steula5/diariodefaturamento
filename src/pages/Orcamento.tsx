@@ -23,7 +23,7 @@ import {
 import { parseOrcamentoExcelFile } from '@/lib/orcamento-parser';
 import { parseExcelFile } from '@/lib/excel-parser';
 import type { OrcamentoData, Orcamento } from '@/types/faturamento';
-import { Download, Upload, Trash2, FileSpreadsheet, FileDown, MoreVertical } from 'lucide-react';
+import { Download, Upload, Trash2, FileSpreadsheet, FileDown, MoreVertical, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Orcamento = () => {
@@ -36,6 +36,9 @@ const Orcamento = () => {
   });
 
   const [pedidosDocumentos, setPedidosDocumentos] = useState<string[]>([]);
+  const [faturadoInput, setFaturadoInput] = useState<string>(
+    () => (loadOrcamentoData()?.totalFaturado ?? '').toString()
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pedidosInputRef = useRef<HTMLInputElement>(null);
 
@@ -153,6 +156,13 @@ const Orcamento = () => {
     });
   }, []);
 
+  const handleFaturadoBlur = useCallback(() => {
+    const parsed = parseFloat(faturadoInput.replace(/[^0-9,.]/g, '').replace(',', '.'));
+    const value = isNaN(parsed) ? undefined : parsed;
+    setData(prev => ({ ...prev, totalFaturado: value }));
+    setFaturadoInput(value !== undefined ? value.toString() : '');
+  }, [faturadoInput]);
+
   const handleClear = useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todos os dados?')) {
       setData({
@@ -161,6 +171,7 @@ const Orcamento = () => {
         orcamentoDiario: [],
       });
       setPedidosDocumentos([]);
+      setFaturadoInput('');
       toast.success('Dados limpos!');
     }
   }, []);
@@ -177,6 +188,12 @@ const Orcamento = () => {
   const oportunidadesPerdidas = data.orcamentos.filter(o => !o.no_sistema && !isConvertido(o));
   const totalAbertas = oportunidadesAbertas.reduce((s, o) => s + o.valor, 0);
   const totalPerdidas = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
+
+  const totalFaturado = data.totalFaturado ?? 0;
+  const fatVsOrc = totalOrcamentos > 0 ? (totalFaturado / totalOrcamentos) * 100 : 0;
+  const coberturaOrc = totalFaturado > 0 ? (totalConvertidos / totalFaturado) * 100 : 0;
+  const faturadoSemOrcamento = Math.max(0, totalFaturado - totalConvertidos);
+  const difFaturadoOrcado = totalFaturado - totalOrcamentos;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
@@ -237,6 +254,132 @@ const Orcamento = () => {
             <div className="text-xs text-gray-500 mt-1">{oportunidadesAbertas.length} orçamentos com status Ativo</div>
           </div>
         </div>
+
+        {/* Total Faturado no Período */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <label htmlFor="totalFaturado" className="block text-sm font-semibold text-slate-700 mb-1">
+                Total Faturado no Período
+              </label>
+              <p className="text-xs text-slate-500">Informe o valor total faturado no mês para comparar com o pipeline de orçamentos.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500 font-medium">R$</span>
+              <input
+                id="totalFaturado"
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={faturadoInput}
+                onChange={e => setFaturadoInput(e.target.value)}
+                onBlur={handleFaturadoBlur}
+                onKeyDown={e => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+                className="w-48 px-3 py-2 border border-slate-300 rounded-lg text-right text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Insights: Faturado vs Orçado */}
+        {totalFaturado > 0 && (
+          <div className="mb-6">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Faturado vs Orçado</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Faturado vs Pipeline */}
+              <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 min-w-0">
+                <div className="text-xs text-gray-600 truncate">Faturado vs Pipeline</div>
+                <div className={`text-lg font-bold truncate ${
+                  fatVsOrc >= 100 ? 'text-green-600' : fatVsOrc >= 70 ? 'text-yellow-600' : 'text-red-600'
+                }`}>{fatVsOrc.toFixed(1)}%</div>
+                <div className="flex items-center gap-1 mt-1">
+                  {fatVsOrc >= 100 ? (
+                    <TrendingUp className="w-3 h-3 text-green-500" />
+                  ) : fatVsOrc >= 70 ? (
+                    <Minus className="w-3 h-3 text-yellow-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-red-500" />
+                  )}
+                  <span className="text-xs text-gray-500 truncate">{formatCurrency(totalFaturado)} faturado</span>
+                </div>
+              </div>
+
+              {/* Cobertura por Orçamentos */}
+              <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-purple-500 min-w-0">
+                <div className="text-xs text-gray-600 truncate">Origem em Orçamentos</div>
+                <div className={`text-lg font-bold truncate ${
+                  coberturaOrc >= 60 ? 'text-green-600' : coberturaOrc >= 30 ? 'text-yellow-600' : 'text-slate-600'
+                }`}>{coberturaOrc.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500 mt-1 truncate">{formatCurrency(totalConvertidos)} originados de ORC</div>
+              </div>
+
+              {/* Faturado sem orçamento */}
+              <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-orange-400 min-w-0">
+                <div className="text-xs text-gray-600 truncate">Faturado (outras origens)</div>
+                <div className="text-lg font-bold text-orange-600 truncate">{formatCurrency(faturadoSemOrcamento)}</div>
+                <div className="text-xs text-gray-500 mt-1 truncate">Não originados de ORC</div>
+              </div>
+
+              {/* Diferença Faturado - Orçado */}
+              <div className={`bg-white rounded-lg shadow-sm p-3 border-l-4 min-w-0 ${
+                difFaturadoOrcado >= 0 ? 'border-green-500' : 'border-red-400'
+              }`}>
+                <div className="text-xs text-gray-600 truncate">Faturado − Pipeline</div>
+                <div className={`text-lg font-bold truncate ${
+                  difFaturadoOrcado >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {difFaturadoOrcado >= 0 ? '+' : ''}{formatCurrency(difFaturadoOrcado)}
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {difFaturadoOrcado >= 0 ? (
+                    <TrendingUp className="w-3 h-3 text-green-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-red-500" />
+                  )}
+                  <span className="text-xs text-gray-500 truncate">
+                    {difFaturadoOrcado >= 0 ? 'Faturou acima do pipeline' : 'Faturou abaixo do pipeline'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bar visual comparison */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mt-3">
+              <div className="flex justify-between text-xs text-slate-600 mb-1">
+                <span>Pipeline de Orçamentos</span>
+                <span>{formatCurrency(totalOrcamentos)}</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3 mb-3">
+                <div
+                  className="bg-blue-500 h-3 rounded-full"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-600 mb-1">
+                <span>Total Faturado</span>
+                <span>{formatCurrency(totalFaturado)}</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3 mb-3">
+                <div
+                  className={`h-3 rounded-full ${
+                    totalFaturado >= totalOrcamentos ? 'bg-green-500' : 'bg-yellow-500'
+                  }`}
+                  style={{ width: `${Math.min(100, fatVsOrc)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-slate-600 mb-1">
+                <span>Convertidos de Orçamentos</span>
+                <span>{formatCurrency(totalConvertidos)}</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3">
+                <div
+                  className="bg-purple-500 h-3 rounded-full"
+                  style={{ width: `${totalOrcamentos > 0 ? Math.min(100, (totalConvertidos / totalOrcamentos) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Menu */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex items-center justify-between">
