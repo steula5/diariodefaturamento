@@ -316,7 +316,13 @@ var fmtScale=function(v){
   return text+'M';
 };
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-var selectedDay=null;
+var selectedDay=(function(){
+  if(!LAST_FAT_DATE) return null;
+  var parts=LAST_FAT_DATE.split('-').map(Number);
+  if(parts.length!==3) return null;
+  if(parts[0]!==REPORT_YEAR || parts[1]!==REPORT_MONTH) return null;
+  return parts[2];
+})();
 var tipLabels=[];
 var monthTipLabels=[];
 var tip=null;
@@ -362,9 +368,7 @@ function changeCalendarMonth(dir){
   if(ni<0||ni>=availableMonths.length) return;
   calendarYear=availableMonths[ni].y;
   calendarMonth=availableMonths[ni].m;
-  selectedDay=null;
-  var detail=document.getElementById('day-detail');
-  if(detail) detail.className='day-detail';
+  selectedDay=getLastFatDayWithValue(calendarYear,calendarMonth);
   updateMonthCards();
   renderCalendar();
 }
@@ -424,6 +428,14 @@ function getLastFatDateWithValueForMonth(year,month){
     }
   });
   return last;
+}
+
+function getLastFatDayWithValue(year,month){
+  var lastDate=getLastFatDateWithValueForMonth(year,month);
+  if(!lastDate) return null;
+  var parts=lastDate.split('-').map(Number);
+  if(parts.length!==3) return null;
+  return parts[2];
 }
 
 function formatISODate(dateStr){
@@ -494,6 +506,27 @@ html+='</div>';
 cal.innerHTML=html;
 document.getElementById('total-fat').textContent=fmt(total);
 document.getElementById('media-fat').textContent=count>0?fmt(total/count):'—';
+
+var detail=document.getElementById('day-detail');
+if(!detail) return;
+if(selectedDay===null){
+  detail.className='day-detail';
+  return;
+}
+
+if(selectedDay<1 || selectedDay>last.getDate()){
+  detail.className='day-detail';
+  return;
+}
+
+var selectedKey=yr+'-'+String(mo).padStart(2,'0')+'-'+String(selectedDay).padStart(2,'0');
+var selectedFat=fatMap.get(selectedKey)||0;
+if(selectedFat>0){
+  detail.innerHTML='<div class="day-title">Faturamento — Dia '+selectedDay+'/'+calendarMonth+'/'+calendarYear+'</div><div class="day-value">'+fmt(selectedFat)+'</div>';
+} else {
+  detail.innerHTML='<div class="day-title">Dia '+selectedDay+'/'+calendarMonth+'/'+calendarYear+'</div><div class="day-no-data">Sem faturamento registrado</div>';
+}
+detail.className='day-detail visible';
 }
 
 function selectDay(d,fat){
