@@ -45,6 +45,7 @@ export interface Orcamento {
   no_sistema?: boolean; // indica se ainda está no sistema (toggle manual)
   virou_pedido?: string; // número do pedido if converted, undefined if not
   analisado?: boolean; // indica se o orçamento já foi analisado (checkbox manual)
+  motivo_perda?: string; // motivo obrigatório quando o orçamento for marcado como perdido
 }
 
 export interface OrcamentoDia {

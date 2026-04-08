@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Orcamento } from '@/types/faturamento';
-import { formatCurrency } from '@/lib/orcamento-store';
+import { formatCurrency, getOrcamentoStatus, isOrcamentoConvertido } from '@/lib/orcamento-store';
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
 
 interface OrcamentoTableProps {
@@ -10,12 +10,13 @@ interface OrcamentoTableProps {
   onCodClienteUpdate?: (documento: string, codCliente: string) => void;
   onNoSistemaToggle?: (documento: string, noSistema: boolean) => void;
   onAnalisadoToggle?: (documento: string, analisado: boolean) => void;
+  onMotivoPerdaUpdate?: (documento: string, motivoPerda: string) => boolean | void;
 }
 
 type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle, onAnalisadoToggle }: OrcamentoTableProps) {
+export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle, onAnalisadoToggle, onMotivoPerdaUpdate }: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
@@ -23,14 +24,16 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
   const [editingValue, setEditingValue] = useState('');
   const [editingCodDoc, setEditingCodDoc] = useState<string | null>(null);
   const [editingCodValue, setEditingCodValue] = useState('');
+  const [editingMotivoDoc, setEditingMotivoDoc] = useState<string | null>(null);
+  const [editingMotivoValue, setEditingMotivoValue] = useState('');
 
   const pedidoSet = new Set(pedidosDocumentos);
   const orcamentosComStatus = orcamentos.map(o => {
-    // Considera convertido se tem virou_pedido preenchido (manual) OU está na lista de pedidos
-    const convertido = Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+    const convertido = isOrcamentoConvertido(o, pedidoSet);
     return {
       ...o,
       convertido,
+      status: getOrcamentoStatus(o, pedidoSet),
     };
   });
 
@@ -100,6 +103,23 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
     setEditingValue('');
   };
 
+  const handleMotivoStart = (documento: string, currentValue: string) => {
+    setEditingMotivoDoc(documento);
+    setEditingMotivoValue(currentValue || '');
+  };
+
+  const handleMotivoCancel = () => {
+    setEditingMotivoDoc(null);
+    setEditingMotivoValue('');
+  };
+
+  const handleMotivoSave = (documento: string) => {
+    const result = onMotivoPerdaUpdate?.(documento, editingMotivoValue);
+    if (result !== false) {
+      handleMotivoCancel();
+    }
+  };
+
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido).reduce((s, o) => s + o.valor, 0);
   const totalConvertidos = orcamentosComStatus.filter(o => o.convertido).reduce((s, o) => s + o.valor, 0);
@@ -163,8 +183,10 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 </div>
               </th>
               <th className="px-4 py-2 text-center">Ativid. Sistema</th>
+              <th className="px-4 py-2 text-center">Status</th>
               <th className="px-4 py-2 text-center">Analisado</th>
               <th className="px-4 py-2 text-left">Cód. Cliente</th>
+              <th className="px-4 py-2 text-left">Motivo da Perda</th>
               <th 
                 className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('cliente')}
@@ -209,7 +231,7 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                 <td className="px-4 py-2 text-center">
                   <button
                     onClick={() => onNoSistemaToggle && onNoSistemaToggle(orcamento.documento, !orcamento.no_sistema)}
-                    title={orcamento.no_sistema ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar'}
+                    title={orcamento.no_sistema ? 'Ativo no sistema — clique para marcar como perdido' : 'Inativo no sistema — clique para reativar'}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
                       orcamento.no_sistema
                         ? 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -221,6 +243,17 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                     }`} />
                     {orcamento.no_sistema ? 'Ativo' : 'Inativo'}
                   </button>
+                </td>
+                <td className="px-4 py-2 text-center">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    orcamento.status === 'convertido'
+                      ? 'bg-green-100 text-green-700'
+                      : orcamento.status === 'perdido'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {orcamento.status === 'convertido' ? 'Convertido' : orcamento.status === 'perdido' ? 'Perdido' : 'Em aberto'}
+                  </span>
                 </td>
                 <td className="px-4 py-2 text-center">
                   <input
@@ -254,6 +287,38 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                     >
                       {orcamento.cod_cliente || <span className="text-gray-300">—</span>}
                     </span>
+                  )}
+                </td>
+                <td className="px-4 py-2">
+                  {orcamento.status === 'perdido' ? (
+                    editingMotivoDoc === orcamento.documento ? (
+                      <div className="flex items-start gap-1">
+                        <input
+                          type="text"
+                          value={editingMotivoValue}
+                          onChange={(e) => setEditingMotivoValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleMotivoSave(orcamento.documento);
+                            if (e.key === 'Escape') handleMotivoCancel();
+                          }}
+                          className="w-64 px-2 py-1 text-xs border rounded"
+                          placeholder="Descreva o motivo"
+                          autoFocus
+                        />
+                        <button onClick={() => handleMotivoSave(orcamento.documento)} className="text-green-600 hover:text-green-800 font-bold">✓</button>
+                        <button onClick={handleMotivoCancel} className="text-red-600 hover:text-red-800 font-bold">✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleMotivoStart(orcamento.documento, orcamento.motivo_perda || '')}
+                        className="max-w-64 rounded bg-red-50 px-2 py-1 text-left text-xs text-red-700 hover:bg-red-100"
+                        title="Clique para editar o motivo da perda"
+                      >
+                        {orcamento.motivo_perda || 'Informar motivo'}
+                      </button>
+                    )
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
                 <td className="px-4 py-2">{orcamento.cliente}</td>

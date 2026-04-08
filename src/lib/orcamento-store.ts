@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 
 const STORAGE_KEY = 'orcamento_dados';
 
+export type OrcamentoStatus = 'convertido' | 'perdido' | 'em_aberto';
+
 export function getDefaultPeriod(date = new Date()): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -40,36 +42,69 @@ export function calculateDaysInPortfolio(dataEmissao: string): number {
   return differenceDays;
 }
 
+function normalizeMotivoPerda(motivo?: string): string | undefined {
+  const trimmed = motivo?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeOrcamento(orcamento: Orcamento): Orcamento {
+  return {
+    ...orcamento,
+    no_sistema: orcamento.no_sistema ?? true,
+    motivo_perda: normalizeMotivoPerda(orcamento.motivo_perda),
+  };
+}
+
+export function isOrcamentoConvertido(orcamento: Orcamento, pedidoSet: Pick<Set<string>, 'has'>): boolean {
+  return Boolean(orcamento.virou_pedido) || pedidoSet.has(orcamento.documento);
+}
+
+export function getOrcamentoStatus(orcamento: Orcamento, pedidoSet: Pick<Set<string>, 'has'>): OrcamentoStatus {
+  if (isOrcamentoConvertido(orcamento, pedidoSet)) {
+    return 'convertido';
+  }
+
+  return orcamento.no_sistema === false ? 'perdido' : 'em_aberto';
+}
+
 export function loadOrcamentoData(): OrcamentoData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as OrcamentoData;
+    const parsed = JSON.parse(raw) as OrcamentoData;
+    return {
+      ...parsed,
+      orcamentos: (parsed.orcamentos || []).map(normalizeOrcamento),
+    };
   } catch {
     return null;
   }
 }
 
 export function saveOrcamentoData(data: OrcamentoData): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    ...data,
+    orcamentos: data.orcamentos.map(normalizeOrcamento),
+  }));
 }
 
 export function mergeOrcamentos(existing: Orcamento[], newOrcamentos: Orcamento[]): Orcamento[] {
   const map = new Map<string, Orcamento>();
   
   existing.forEach(o => {
-    map.set(o.documento, o);
+    map.set(o.documento, normalizeOrcamento(o));
   });
   
   newOrcamentos.forEach(o => {
     const current = map.get(o.documento);
-    map.set(o.documento, {
+    map.set(o.documento, normalizeOrcamento({
       ...o,
       cod_cliente: current?.cod_cliente,
-      no_sistema: current?.no_sistema,
+      no_sistema: current?.no_sistema ?? true,
       virou_pedido: current?.virou_pedido,
       analisado: current?.analisado,
-    });
+      motivo_perda: current?.motivo_perda,
+    }));
   });
   
   return Array.from(map.values());
@@ -110,14 +145,16 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   
   const pedidoSet = new Set(pedidosDocumentos);
-  const isConv = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
   const orcamentosComStatus = data.orcamentos.map(o => ({
     ...o,
-    convertido: isConv(o),
+    convertido: isOrcamentoConvertido(o, pedidoSet),
+    status: getOrcamentoStatus(o, pedidoSet),
+    motivo_perda: normalizeMotivoPerda(o.motivo_perda),
   }));
 
   const orcamentosNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido);
   const orcamentosConvertidos = orcamentosComStatus.filter(o => o.convertido);
+  const orcamentosPerdidos = orcamentosComStatus.filter(o => o.status === 'perdido');
 
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = orcamentosNaoConvertidos.reduce((s, o) => s + o.valor, 0);
@@ -132,10 +169,11 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
       <td style="padding: 8px; text-align: right;">${calculateDaysInPortfolio(o.dataEmissao)} dias</td>
       <td style="padding: 8px; text-align: right;">${formatCurrency(o.valor)}</td>
       <td style="padding: 8px; text-align: center;">
-        <span style="color: ${o.convertido ? '#22c55e' : '#ef4444'}; font-weight: bold;">
-          ${o.convertido ? 'Sim' : 'Não'}
+        <span style="display: inline-block; padding: 4px 8px; border-radius: 999px; font-weight: bold; font-size: 12px; color: ${o.status === 'convertido' ? '#166534' : o.status === 'perdido' ? '#991b1b' : '#1d4ed8'}; background: ${o.status === 'convertido' ? '#dcfce7' : o.status === 'perdido' ? '#fee2e2' : '#dbeafe'};">
+          ${o.status === 'convertido' ? 'Convertido' : o.status === 'perdido' ? 'Perdido' : 'Em aberto'}
         </span>
       </td>
+      <td style="padding: 8px; text-align: left;">${o.status === 'perdido' ? (o.motivo_perda || '-') : ''}</td>
       <td style="padding: 8px; text-align: left;">${o.virou_pedido || ''}</td>
     </tr>
   `).join('');
@@ -208,8 +246,8 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
         </div>
         <div class="card red">
           <h3>NÃO Convertidos</h3>
-          <div class="value">${formatCurrency(totalNaoConvertidos)}</div>
-          <p>${orcamentosNaoConvertidos.length} orçamentos</p>
+          <div class="value">${formatCurrency(orcamentosPerdidos.reduce((s, o) => s + o.valor, 0))}</div>
+          <p>${orcamentosPerdidos.length} orçamentos perdidos</p>
         </div>
         <div class="card green-taxa">
           <h3>Taxa de Conversão</h3>
@@ -218,8 +256,8 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
         </div>
       </div>
 
-      <h2>Detalhes dos Orçamentos NÃO Convertidos em Pedidos</h2>
-      ${orcamentosNaoConvertidos.length > 0 ? `
+      <h2>Orçamentos Perdidos</h2>
+      ${orcamentosPerdidos.length > 0 ? `
         <table>
           <thead>
             <tr>
@@ -228,23 +266,25 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
               <th>Data Emissão</th>
               <th>Dias em Carteira</th>
               <th>Valor</th>
-              <th>Virou Pedido</th>
+              <th>Status</th>
+              <th>Motivo</th>
             </tr>
           </thead>
           <tbody>
-            ${orcamentosNaoConvertidos.map(o => `
+            ${orcamentosPerdidos.map(o => `
               <tr style="border-bottom: 1px solid #ddd;">
                 <td style="padding: 8px;">${o.documento}</td>
                 <td style="padding: 8px;">${o.cliente}</td>
                 <td style="padding: 8px;">${o.dataEmissao}</td>
                 <td style="padding: 8px; text-align: right;">${calculateDaysInPortfolio(o.dataEmissao)} dias</td>
                 <td style="padding: 8px; text-align: right;">${formatCurrency(o.valor)}</td>
-                <td style="padding: 8px; text-align: center; color: #ef4444; font-weight: bold;">Não</td>
+                <td style="padding: 8px; text-align: center;"><span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:bold;font-size:12px;">Perdido</span></td>
+                <td style="padding: 8px;">${o.motivo_perda || '-'}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
-      ` : '<p>Todos os orçamentos foram convertidos em pedidos.</p>'}
+      ` : '<p>Nenhum orçamento foi marcado como perdido.</p>'}
 
       <h2>Todos os Orçamentos</h2>
       <table>
@@ -255,7 +295,8 @@ function generateStandaloneHTML(data: OrcamentoData, pedidosDocumentos: string[]
             <th>Data Emissão</th>
             <th>Dias em Carteira</th>
             <th>Valor</th>
-            <th>Virou Pedido</th>
+            <th>Status</th>
+            <th>Motivo da Perda</th>
             <th>Nº Pedido</th>
           </tr>
         </thead>
@@ -274,8 +315,9 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  const isConvExcel = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+  const isConvExcel = (o: Orcamento) => isOrcamentoConvertido(o, pedidoSet);
   const convertidosExcel = data.orcamentos.filter(isConvExcel);
+  const perdidosExcel = data.orcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'perdido');
   const totalExcel = data.orcamentos.reduce((s, o) => s + o.valor, 0);
   const totalConvExcel = convertidosExcel.reduce((s, o) => s + o.valor, 0);
   const taxaExcel = totalExcel > 0 ? (totalConvExcel / totalExcel) * 100 : 0;
@@ -285,6 +327,7 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
     { 'Indicador': 'Total em Orçamentos', 'Valor': formatCurrency(totalExcel), 'Quantidade': data.orcamentos.length },
     { 'Indicador': 'Valores Convertidos', 'Valor': formatCurrency(totalConvExcel), 'Quantidade': convertidosExcel.length },
     { 'Indicador': 'Valores Não Convertidos', 'Valor': formatCurrency(totalExcel - totalConvExcel), 'Quantidade': data.orcamentos.length - convertidosExcel.length },
+    { 'Indicador': 'Orçamentos Perdidos', 'Valor': formatCurrency(perdidosExcel.reduce((s, o) => s + o.valor, 0)), 'Quantidade': perdidosExcel.length },
     { 'Indicador': 'Taxa de Conversão', 'Valor': taxaExcel.toFixed(1) + '%', 'Quantidade': '' },
   ];
   const wsSummary = XLSX.utils.json_to_sheet(summaryData);
@@ -299,6 +342,8 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
     'Dias em Carteira': calculateDaysInPortfolio(o.dataEmissao),
     'Valor': o.valor,
     'Convertido': isConvExcel(o) ? 'Sim' : 'Não',
+    'Status': getOrcamentoStatus(o, pedidoSet) === 'convertido' ? 'Convertido' : getOrcamentoStatus(o, pedidoSet) === 'perdido' ? 'Perdido' : 'Em aberto',
+    'Motivo da Perda': getOrcamentoStatus(o, pedidoSet) === 'perdido' ? normalizeMotivoPerda(o.motivo_perda) || '' : '',
     'Nº Pedido': o.virou_pedido || '',
   }));
 
@@ -316,6 +361,8 @@ export function exportToExcel(data: OrcamentoData, pedidosDocumentos: string[]):
     { wch: 16 },  // Dias em Carteira
     { wch: 12 },  // Valor
     { wch: 12 },  // Convertido
+    { wch: 14 },  // Status
+    { wch: 40 },  // Motivo da Perda
     { wch: 12 },  // Nº Pedido
   ];
 
@@ -331,10 +378,12 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
 
   const orcamentosComStatus = data.orcamentos.map(o => ({
     ...o,
-    convertido: Boolean(o.virou_pedido) || pedidoSet.has(o.documento),
+    convertido: isOrcamentoConvertido(o, pedidoSet),
+    status: getOrcamentoStatus(o, pedidoSet),
+    motivo_perda: normalizeMotivoPerda(o.motivo_perda),
   }));
 
-  const oportunidadesPerdidas = orcamentosComStatus.filter(o => !o.no_sistema && !o.convertido);
+  const oportunidadesPerdidas = orcamentosComStatus.filter(o => o.status === 'perdido');
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
   const orcamentosConvertidos = orcamentosComStatus.filter(o => o.convertido);
@@ -425,7 +474,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
             <th>Cidade</th>
             <th>Data</th>
             <th>Valor</th>
-            <th>Virou Pedido</th>
+            <th>Status</th>
+            <th>Motivo</th>
           </tr>
         </thead>
         <tbody>
@@ -436,7 +486,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
               <td>${o.cidade}</td>
               <td>${o.dataEmissao}</td>
               <td style="text-align: right;">${formatCurrency(o.valor)}</td>
-              <td style="text-align: center; color: #ef4444; font-weight: bold;">Não</td>
+              <td style="text-align: center;"><span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-weight:bold;font-size:12px;">Perdido</span></td>
+              <td>${o.motivo_perda || '-'}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -452,7 +503,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
             <th>Cidade</th>
             <th>Data</th>
             <th>Valor</th>
-            <th>Convertido</th>
+            <th>Status</th>
+            <th>Motivo</th>
             <th>Nº Pedido</th>
           </tr>
         </thead>
@@ -464,7 +516,8 @@ export function exportToPDF(data: OrcamentoData, pedidosDocumentos: string[]): v
               <td>${o.cidade}</td>
               <td>${o.dataEmissao}</td>
               <td style="text-align: right;">${formatCurrency(o.valor)}</td>
-              <td>${o.convertido ? 'Sim' : 'Não'}</td>
+              <td>${o.status === 'convertido' ? 'Convertido' : o.status === 'perdido' ? 'Perdido' : 'Em aberto'}</td>
+              <td>${o.status === 'perdido' ? (o.motivo_perda || '-') : ''}</td>
               <td>${o.virou_pedido || ''}</td>
             </tr>
           `).join('')}

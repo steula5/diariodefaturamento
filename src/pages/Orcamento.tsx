@@ -17,6 +17,8 @@ import {
   exportToExcel,
   exportToPDF,
   getDefaultPeriod,
+  getOrcamentoStatus,
+  isOrcamentoConvertido,
   mergeOrcamentos,
   formatCurrency,
 } from '@/lib/orcamento-store';
@@ -119,7 +121,12 @@ const Orcamento = () => {
     setData(prev => {
       const updated = prev.orcamentos.map(o =>
         o.documento === documento
-          ? { ...o, virou_pedido: numeroPedido || undefined as any }
+          ? {
+              ...o,
+              virou_pedido: numeroPedido || undefined as any,
+              motivo_perda: numeroPedido ? undefined : o.motivo_perda,
+              no_sistema: numeroPedido ? true : o.no_sistema,
+            }
           : o
       );
       return { ...prev, orcamentos: updated };
@@ -139,12 +146,65 @@ const Orcamento = () => {
   }, []);
 
   const handleNoSistemaToggle = useCallback((documento: string, noSistema: boolean) => {
-    setData(prev => {
-      const updated = prev.orcamentos.map(o =>
-        o.documento === documento ? { ...o, no_sistema: noSistema } : o
+    const orcamentoAtual = data.orcamentos.find(o => o.documento === documento);
+    if (!orcamentoAtual) {
+      return;
+    }
+
+    const pedidoSet = new Set(pedidosDocumentos);
+    const convertido = isOrcamentoConvertido(orcamentoAtual, pedidoSet);
+
+    if (!noSistema && !convertido) {
+      const motivoInformado = window.prompt(
+        'Informe o motivo da perda deste orçamento:',
+        orcamentoAtual.motivo_perda || ''
       );
-      return { ...prev, orcamentos: updated };
-    });
+
+      if (motivoInformado === null) {
+        return;
+      }
+
+      const motivo = motivoInformado.trim();
+      if (!motivo) {
+        toast.error('Informe o motivo antes de marcar o orçamento como perdido.');
+        return;
+      }
+
+      setData(prev => ({
+        ...prev,
+        orcamentos: prev.orcamentos.map(o =>
+          o.documento === documento ? { ...o, no_sistema: false, motivo_perda: motivo } : o
+        ),
+      }));
+      toast.success('Orçamento marcado como perdido.');
+      return;
+    }
+
+    setData(prev => ({
+      ...prev,
+      orcamentos: prev.orcamentos.map(o =>
+        o.documento === documento
+          ? { ...o, no_sistema: noSistema, motivo_perda: noSistema ? undefined : o.motivo_perda }
+          : o
+      ),
+    }));
+  }, [data.orcamentos, pedidosDocumentos]);
+
+  const handleMotivoPerdaUpdate = useCallback((documento: string, motivoPerda: string) => {
+    const motivo = motivoPerda.trim();
+    if (!motivo) {
+      toast.error('O motivo da perda não pode ficar vazio.');
+      return false;
+    }
+
+    setData(prev => ({
+      ...prev,
+      orcamentos: prev.orcamentos.map(o =>
+        o.documento === documento ? { ...o, motivo_perda: motivo, no_sistema: false } : o
+      ),
+    }));
+    toast.success('Motivo da perda atualizado.');
+    return true;
   }, []);
 
   const handleAnalisadoToggle = useCallback((documento: string, analisado: boolean) => {
@@ -177,15 +237,15 @@ const Orcamento = () => {
   }, []);
 
   const pedidoSet = new Set(pedidosDocumentos);
-  const isConvertido = (o: Orcamento) => Boolean(o.virou_pedido) || pedidoSet.has(o.documento);
+  const isConvertido = (o: Orcamento) => isOrcamentoConvertido(o, pedidoSet);
 
   const totalOrcamentos = data.orcamentos.reduce((s, o) => s + o.valor, 0);
   const convertidos = data.orcamentos.filter(isConvertido);
   const totalConvertidosCalculado = convertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidosCalculado / totalOrcamentos) * 100 : 0;
 
-  const oportunidadesAbertas = data.orcamentos.filter(o => o.no_sistema === true && !isConvertido(o));
-  const oportunidadesPerdidas = data.orcamentos.filter(o => !o.no_sistema && !isConvertido(o));
+  const oportunidadesAbertas = data.orcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'em_aberto');
+  const oportunidadesPerdidas = data.orcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'perdido');
   const totalAbertas = oportunidadesAbertas.reduce((s, o) => s + o.valor, 0);
   const totalPerdidas = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
 
@@ -231,9 +291,9 @@ const Orcamento = () => {
             <div className="text-xs text-gray-500 mt-1">{convertidos.length} orçamentos</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-red-500 min-w-0">
-            <div className="text-xs text-gray-600 truncate">Não Convertidos</div>
+            <div className="text-xs text-gray-600 truncate">Perdidos</div>
             <div className="text-lg font-bold text-red-600 truncate">{formatCurrency(totalPerdidas)}</div>
-            <div className="text-xs text-gray-500 mt-1">{oportunidadesPerdidas.length} orçamentos inativos</div>
+            <div className="text-xs text-gray-500 mt-1">{oportunidadesPerdidas.length} orçamentos marcados como perdidos</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Taxa de Conversão</div>
@@ -446,6 +506,7 @@ const Orcamento = () => {
             onCodClienteUpdate={handleCodClienteUpdate}
             onNoSistemaToggle={handleNoSistemaToggle}
             onAnalisadoToggle={handleAnalisadoToggle}
+            onMotivoPerdaUpdate={handleMotivoPerdaUpdate}
           />
         </div>
       </div>
