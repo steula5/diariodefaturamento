@@ -329,10 +329,17 @@ var tip=null;
 var chartYear=REPORT_YEAR,chartMonth=REPORT_MONTH;
 var calendarYear=REPORT_YEAR,calendarMonth=REPORT_MONTH;
 var allHolidays=feriadosPersonalizados.concat(feriadosNacionais.filter(function(d){return feriadosPersonalizados.indexOf(d)===-1;}));
+function normalizeDateKey(key){
+  if(!key) return '';
+  var parts=String(key).split('-');
+  if(parts.length!==3) return String(key);
+  return parts[0]+'-'+String(parts[1]).padStart(2,'0')+'-'+String(parts[2]).padStart(2,'0');
+}
 var availableMonths=(function(){
   var seen={},list=[];
   fatDiario.forEach(function(f){
-    var p=f.data.split('-');var key=p[0]+'-'+p[1];
+    var norm=normalizeDateKey(f.data);
+    var p=norm.split('-');var key=p[0]+'-'+p[1];
     if(!seen[key]){seen[key]=1;list.push({y:+p[0],m:+p[1]});}
   });
   list.sort(function(a,b){return a.y!==b.y?a.y-b.y:a.m-b.m});
@@ -382,7 +389,8 @@ function getMonthStats(year,month){
   var totalFaturamento=0;
   var diasComFat=0;
   fatDiario.forEach(function(f){
-    if(f.data.slice(0,7)===monthKey){
+    var key=normalizeDateKey(f.data);
+    if(key.slice(0,7)===monthKey){
       totalFaturamento+=f.valor;
       diasComFat+=1;
     }
@@ -423,8 +431,9 @@ function getLastFatDateWithValueForMonth(year,month){
   var monthKey=getMonthKey(year,month);
   var last='';
   fatDiario.forEach(function(f){
-    if(f.data.slice(0,7)===monthKey && f.valor>0){
-      if(!last || f.data>last) last=f.data;
+    var key=normalizeDateKey(f.data);
+    if(key.slice(0,7)===monthKey && f.valor>0){
+      if(!last || key>last) last=key;
     }
   });
   return last;
@@ -481,7 +490,16 @@ var first=new Date(yr,mo-1,1);
 var last=new Date(yr,mo,0);
 var today=new Date();today.setHours(0,0,0,0);
 var fatMap=new Map();
-fatDiario.forEach(function(f){fatMap.set(f.data,f.valor)});
+fatDiario.forEach(function(f){fatMap.set(normalizeDateKey(f.data),f.valor)});
+
+var selectedKeyCurrent=yr+'-'+String(mo).padStart(2,'0')+'-'+String(selectedDay||0).padStart(2,'0');
+if(selectedDay!==null && (fatMap.get(selectedKeyCurrent)||0)<=0){
+  selectedDay=null;
+}
+if(selectedDay===null){
+  selectedDay=getLastFatDayWithValue(yr,mo);
+}
+
 var html='<div class="calendar-grid">';
 WEEKDAYS.forEach(function(w){html+='<div class="cal-header">'+w+'</div>'});
 for(var i=0;i<first.getDay();i++)html+='<div></div>';
