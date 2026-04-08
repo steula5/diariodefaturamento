@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { OrcamentoTable } from '@/components/OrcamentoTable';
 import {
@@ -9,6 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   loadOrcamentoData,
   saveOrcamentoData,
@@ -28,6 +35,26 @@ import type { OrcamentoData, Orcamento } from '@/types/faturamento';
 import { Download, Upload, Trash2, FileSpreadsheet, FileDown, MoreVertical, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Helper: Extract period (YYYY-MM) from dataEmissao (DD/MM/YYYY)
+function extractPeriodFromDataEmissao(dataEmissao: string): string {
+  const [day, month, year] = dataEmissao.split('/');
+  return `${year}-${month}`;
+}
+
+// Helper: Get sorted unique periods from orcamentos
+function getUniquePeriods(orcamentos: Orcamento[]): string[] {
+  const periods = new Set(orcamentos.map(o => extractPeriodFromDataEmissao(o.dataEmissao)));
+  return Array.from(periods).sort().reverse();
+}
+
+// Helper: Format YYYY-MM to human readable
+function formatPeriod(period: string): string {
+  const [year, month] = period.split('-');
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  return `${monthNames[parseInt(month) - 1]} ${year}`;
+}
+
 const Orcamento = () => {
   const [data, setData] = useState<OrcamentoData>(() => {
     return loadOrcamentoData() || {
@@ -41,6 +68,7 @@ const Orcamento = () => {
   const [faturadoInput, setFaturadoInput] = useState<string>(
     () => (loadOrcamentoData()?.totalFaturado ?? '').toString()
   );
+  const [selectedPeriod, setSelectedPeriod] = useState<'todos' | string>('todos');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pedidosInputRef = useRef<HTMLInputElement>(null);
 
@@ -236,16 +264,26 @@ const Orcamento = () => {
     }
   }, []);
 
+  // Get unique periods and filtered orcamentos
+  const availablePeriods = useMemo(() => getUniquePeriods(data.orcamentos), [data.orcamentos]);
+  
+  const filteredOrcamentos = useMemo(() => {
+    if (selectedPeriod === 'todos') {
+      return data.orcamentos;
+    }
+    return data.orcamentos.filter(o => extractPeriodFromDataEmissao(o.dataEmissao) === selectedPeriod);
+  }, [data.orcamentos, selectedPeriod]);
+
   const pedidoSet = new Set(pedidosDocumentos);
   const isConvertido = (o: Orcamento) => isOrcamentoConvertido(o, pedidoSet);
 
-  const totalOrcamentos = data.orcamentos.reduce((s, o) => s + o.valor, 0);
-  const convertidos = data.orcamentos.filter(isConvertido);
+  const totalOrcamentos = filteredOrcamentos.reduce((s, o) => s + o.valor, 0);
+  const convertidos = filteredOrcamentos.filter(isConvertido);
   const totalConvertidosCalculado = convertidos.reduce((s, o) => s + o.valor, 0);
   const taxaConversao = totalOrcamentos > 0 ? (totalConvertidosCalculado / totalOrcamentos) * 100 : 0;
 
-  const oportunidadesAbertas = data.orcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'em_aberto');
-  const oportunidadesPerdidas = data.orcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'perdido');
+  const oportunidadesAbertas = filteredOrcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'em_aberto');
+  const oportunidadesPerdidas = filteredOrcamentos.filter(o => getOrcamentoStatus(o, pedidoSet) === 'perdido');
   const totalAbertas = oportunidadesAbertas.reduce((s, o) => s + o.valor, 0);
   const totalPerdidas = oportunidadesPerdidas.reduce((s, o) => s + o.valor, 0);
 
@@ -278,12 +316,32 @@ const Orcamento = () => {
           </p>
         </div>
 
+        {/* Period Filter */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-semibold text-slate-700">Filtrar por período:</label>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Tudo</SelectItem>
+                {availablePeriods.map(period => (
+                  <SelectItem key={period} value={period}>
+                    {formatPeriod(period)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* Quick Info Cards — Conversão */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Total em Orçamentos</div>
             <div className="text-lg font-bold text-gray-900 truncate">{formatCurrency(totalOrcamentos)}</div>
-            <div className="text-xs text-gray-500 mt-1">{data.orcamentos.length} orçamentos</div>
+            <div className="text-xs text-gray-500 mt-1">{filteredOrcamentos.length} orçamentos</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Valores Convertidos</div>
@@ -298,7 +356,7 @@ const Orcamento = () => {
           <div className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-green-500 min-w-0">
             <div className="text-xs text-gray-600 truncate">Taxa de Conversão</div>
             <div className="text-lg font-bold text-green-600">{taxaConversao.toFixed(1)}%</div>
-            <div className="text-xs text-gray-500 mt-1">{convertidos.length} de {data.orcamentos.length} convertidos</div>
+            <div className="text-xs text-gray-500 mt-1">{convertidos.length} de {filteredOrcamentos.length} convertidos</div>
           </div>
         </div>
 
@@ -500,7 +558,7 @@ const Orcamento = () => {
 
         <div className="bg-white rounded-lg shadow-sm p-6">
           <OrcamentoTable
-            orcamentos={data.orcamentos}
+            orcamentos={filteredOrcamentos}
             pedidosDocumentos={pedidosDocumentos}
             onOrcamentoUpdate={handleOrcamentoUpdate}
             onCodClienteUpdate={handleCodClienteUpdate}
