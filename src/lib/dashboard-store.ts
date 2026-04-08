@@ -66,13 +66,22 @@ function generateStandaloneHTML(data: DashboardData): string {
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+  const faturamentoComValor = data.faturamentoDiario.filter(f => f.valor > 0);
   const monthsWithData = Array.from(new Set(
-    data.faturamentoDiario.map(f => f.data.slice(0, 7))
+    (faturamentoComValor.length > 0 ? faturamentoComValor : data.faturamentoDiario).map(f => f.data.slice(0, 7))
   )).sort();
   const reportMonthKey = monthsWithData.includes(data.mes)
     ? data.mes
     : (monthsWithData[monthsWithData.length - 1] || data.mes);
   const [year, month] = reportMonthKey.split('-').map(Number);
+  const lastFatDateWithValue = faturamentoComValor
+    .filter(f => f.data.slice(0, 7) === reportMonthKey)
+    .map(f => f.data)
+    .sort()
+    .at(-1) || '';
+  const lastFatDateLabel = lastFatDateWithValue
+    ? `${lastFatDateWithValue.slice(8, 10)}/${lastFatDateWithValue.slice(5, 7)}/${lastFatDateWithValue.slice(0, 4)}`
+    : 'sem faturamento registrado';
 
   const classificacoes = data.classificacoes || {};
   const observacoes = data.observacoes || {};
@@ -89,7 +98,7 @@ function generateStandaloneHTML(data: DashboardData): string {
     return fy === year && fm === month;
   });
   const totalFaturamento = fatDiarioDoMes.reduce((s, f) => s + f.valor, 0);
-  const diasComFat = fatDiarioDoMes.length;
+  const diasComFat = fatDiarioDoMes.filter(f => f.valor > 0).length;
   const mediaDiaria = diasComFat > 0 ? totalFaturamento / diasComFat : 0;
   const diasUteisMes = getBusinessDaysInMonth(reportMonthKey, data.feriadosPersonalizados);
   const projecao = mediaDiaria * diasUteisMes;
@@ -119,17 +128,18 @@ function generateStandaloneHTML(data: DashboardData): string {
   // Build sorted orders using custom order if available
   let sortedPedidos: Pedido[];
   if (data.ordenacaoPedidos && data.ordenacaoPedidos.length > 0) {
+    const orderMap = new Map(data.ordenacaoPedidos.map((doc, idx) => [doc, idx]));
     sortedPedidos = [...realPedidos].sort((a, b) => {
-      const idxA = data.ordenacaoPedidos!.indexOf(a.documento);
-      const idxB = data.ordenacaoPedidos!.indexOf(b.documento);
+      const idxA = orderMap.get(a.documento) ?? 9999;
+      const idxB = orderMap.get(b.documento) ?? 9999;
       const posA = idxA >= 0 ? idxA : 9999;
       const posB = idxB >= 0 ? idxB : 9999;
       return posA - posB;
     });
   } else {
-    // Default: P first, then A
-    const sortedPPedidos = [...pedidosProximoMes];
-    sortedPedidos = [...sortedPPedidos, ...pedidosMesAtual];
+    // Match OrdersTable default behavior when there is no custom drag order.
+    const sortedMesAtual = [...pedidosMesAtual].sort((a, b) => calcDiasAtraso(b.dataEmissao) - calcDiasAtraso(a.dataEmissao));
+    sortedPedidos = [...pedidosProximoMes, ...sortedMesAtual];
   }
 
   // No class column in export
@@ -220,6 +230,7 @@ tr:hover{background:#f8fafc}
 <div class="container">
 <h1>Diário de Faturamento</h1>
 <p id="report-subtitle" class="subtitle">${monthNames[month - 1]} ${year} — Relatório Gerencial (${periodoRelatorioLabel})</p>
+<p id="report-cutoff" class="subtitle" style="margin-top:-14px;margin-bottom:18px">Dados de faturamento até: <strong>${lastFatDateLabel}</strong></p>
 
 <div class="grid grid-kpi">
 ${data.meta > 0 ? `<div class="card"><div class="card-label">Meta do Mês</div><div class="card-value text-primary">${fmt(data.meta)}</div></div>` : ''}
@@ -292,6 +303,7 @@ var feriadosPersonalizados=${feriadosJSON};
 var feriadosNacionais=${feriadosNacionaisJSON};
 var MONTH_NAMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var REPORT_YEAR=${year},REPORT_MONTH=${month},PERIODO='${periodoRelatorio}';
+var LAST_FAT_DATE='${lastFatDateWithValue}';
 var REPORT_META=${data.meta};
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var fmtScale=function(v){
@@ -403,10 +415,33 @@ function getMonthStats(year,month){
   };
 }
 
+function getLastFatDateWithValueForMonth(year,month){
+  var monthKey=getMonthKey(year,month);
+  var last='';
+  fatDiario.forEach(function(f){
+    if(f.data.slice(0,7)===monthKey && f.valor>0){
+      if(!last || f.data>last) last=f.data;
+    }
+  });
+  return last;
+}
+
+function formatISODate(dateStr){
+  if(!dateStr) return 'sem faturamento registrado';
+  var parts=dateStr.split('-');
+  if(parts.length!==3) return 'sem faturamento registrado';
+  return parts[2]+'/'+parts[1]+'/'+parts[0];
+}
+
 function updateMonthCards(){
   var stats=getMonthStats(calendarYear,calendarMonth);
   var subtitle=document.getElementById('report-subtitle');
   if(subtitle) subtitle.textContent=MONTH_NAMES[calendarMonth-1]+' '+calendarYear+' — Relatório Gerencial (${periodoRelatorioLabel})';
+  var cutoffLabel=document.getElementById('report-cutoff');
+  if(cutoffLabel){
+    var lastDate=getLastFatDateWithValueForMonth(calendarYear,calendarMonth);
+    cutoffLabel.innerHTML='Dados de faturamento até: <strong>'+formatISODate(lastDate)+'</strong>';
+  }
   var faturamento=document.getElementById('kpi-faturamento');
   if(faturamento) faturamento.textContent=fmt(stats.totalFaturamento);
   var objetivo=document.getElementById('kpi-objetivo');
@@ -493,6 +528,14 @@ if(isCurrentMonth){
   cutoffDate=PERIODO==='manha'?new Date(td.getTime()-86400000):td;
 } else {
   cutoffDate=new Date(yr,mo,0);
+}
+
+if(LAST_FAT_DATE){
+  var lfd=LAST_FAT_DATE.split('-').map(Number);
+  if(lfd.length===3 && lfd[0]===yr && lfd[1]===mo){
+    var lastFatDate=new Date(lfd[0],lfd[1]-1,lfd[2]);
+    if(cutoffDate>lastFatDate) cutoffDate=lastFatDate;
+  }
 }
 
 var fatMap=new Map();
