@@ -173,6 +173,17 @@ const Orcamento = () => {
     });
   }, []);
 
+  const handleDonoUpdate = useCallback((documento: string, dono: string) => {
+    setData(prev => {
+      const updated = prev.orcamentos.map(o =>
+        o.documento === documento
+          ? { ...o, dono: dono || undefined }
+          : o
+      );
+      return { ...prev, orcamentos: updated };
+    });
+  }, []);
+
   const handleNoSistemaToggle = useCallback((documento: string, noSistema: boolean) => {
     const orcamentoAtual = data.orcamentos.find(o => o.documento === documento);
     if (!orcamentoAtual) {
@@ -297,17 +308,27 @@ const Orcamento = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 pb-4 border-b border-slate-200">
           <div className="flex items-center gap-4 mb-4">
-            <nav className="flex items-center gap-3">
+            <nav className="flex items-center gap-4 text-xs font-medium">
               <Link 
                 to="/" 
-                className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors"
+                className="text-slate-600 hover:text-blue-600 transition-colors"
               >
                 Faturamento
               </Link>
-              <span className="text-slate-400">/</span>
-              <span className="text-sm font-medium text-slate-900">
+              <span className="text-slate-300">/</span>
+              <Link 
+                to="/orcamento" 
+                className="text-slate-900 hover:text-blue-600 transition-colors"
+              >
                 Orçamentos
-              </span>
+              </Link>
+              <span className="text-slate-300">/</span>
+              <Link 
+                to="/analisedepedidos" 
+                className="text-slate-600 hover:text-blue-600 transition-colors"
+              >
+                Análise
+              </Link>
             </nav>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Análise de Orçamentos</h1>
@@ -565,6 +586,7 @@ const Orcamento = () => {
             onNoSistemaToggle={handleNoSistemaToggle}
             onAnalisadoToggle={handleAnalisadoToggle}
             onMotivoPerdaUpdate={handleMotivoPerdaUpdate}
+            onDonoUpdate={handleDonoUpdate}
           />
         </div>
       </div>

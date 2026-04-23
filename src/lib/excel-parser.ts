@@ -8,70 +8,56 @@ export function parseExcelFile(data: ArrayBuffer): Pedido[] {
   const pedidos: Pedido[] = [];
   const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
   
-  // Find header row by looking for "Docto" in column A or B
+  // Find header row and column mapping
   let headerRow = -1;
-  let docCol = 0;
-  for (let row = 0; row <= Math.min(range.e.r, 10); row++) {
-    for (let col = 0; col <= 2; col++) {
+  let cols: Record<string, number> = { doc: -1, cliente: -1, cidade: -1, data: -1, valor: -1, codStatus: -1, status: -1 };
+  
+  for (let row = 0; row <= Math.min(range.e.r, 50); row++) {
+    for (let col = 0; col <= Math.min(range.e.c, 20); col++) {
       const cell = sheet[XLSX.utils.encode_cell({ r: row, c: col })];
-      if (cell && String(cell.v).trim().toLowerCase().startsWith('docto')) {
-        headerRow = row;
-        docCol = col;
-        break;
+      if (cell && cell.v) {
+        const val = String(cell.v).trim().toLowerCase();
+        if (val === 'docto' || val === 'documento' || val === 'pedido') cols.doc = col;
+        else if (val.includes('cliente') || val.includes('razao') || val.includes('razão')) cols.cliente = col;
+        else if (val.includes('cidade') || val.includes('munic')) cols.cidade = col;
+        else if (val.includes('emiss') || val.includes('emissao') || val.includes('emissão')) cols.data = col;
+        else if (val === 'valor' || val.includes('total')) cols.valor = col;
+        else if (val.includes('cod.status') || val.includes('cod status')) cols.codStatus = col;
+        else if (val === 'status') cols.status = col;
       }
     }
-    if (headerRow >= 0) break;
+    if (cols.doc >= 0) {
+      headerRow = row;
+      break;
+    }
   }
   
   if (headerRow < 0) return pedidos;
 
-  // Detect column layout based on where Docto is
-  // New format (Docto in A): A=Doc, B=Cliente, E=Cidade, F=Emissão, H=Valor, I=CodStatus, J=Status
-  // Old format (Docto in B): B=Doc, C=Cliente, F=Cidade, G=Emissão, I=Valor, J=CodStatus, L=Status
-  const isNewFormat = docCol === 0;
-  const colCliente   = isNewFormat ? 1 : 2;
-  const colCidade    = isNewFormat ? 4 : 5;
-  const colData      = isNewFormat ? 5 : 6;
-  const colValor     = isNewFormat ? 7 : 8;
-  const colCodStatus = isNewFormat ? 8 : 9;
-  const colStatus    = isNewFormat ? 9 : 11;
-
   for (let row = headerRow + 1; row <= range.e.r; row++) {
-    const docCell = sheet[XLSX.utils.encode_cell({ r: row, c: docCol })];
-    const clienteCell = sheet[XLSX.utils.encode_cell({ r: row, c: colCliente })];
-    const cidadeCell = sheet[XLSX.utils.encode_cell({ r: row, c: colCidade })];
-    const dataCell = sheet[XLSX.utils.encode_cell({ r: row, c: colData })];
-    const valorCell = sheet[XLSX.utils.encode_cell({ r: row, c: colValor })];
-    const codStatusCell = sheet[XLSX.utils.encode_cell({ r: row, c: colCodStatus })];
-    const statusCell = sheet[XLSX.utils.encode_cell({ r: row, c: colStatus })];
-
+    const docCell = sheet[XLSX.utils.encode_cell({ r: row, c: cols.doc })];
     if (!docCell || !docCell.v) continue;
     
     const documento = String(docCell.v).trim();
     if (!documento || documento.toLowerCase().startsWith('docto')) continue;
 
-    // Only keep DESPACHO APROVADO (codStatus 4)
-    const codStatusVal = codStatusCell ? Number(codStatusCell.v) || 0 : 0;
+    const codStatusVal = cols.codStatus >= 0 ? (Number(sheet[XLSX.utils.encode_cell({ r: row, c: cols.codStatus })]?.v) || 0) : 0;
     if (codStatusVal !== 4) continue;
 
     let dataEmissao = '';
+    const dataCell = cols.data >= 0 ? sheet[XLSX.utils.encode_cell({ r: row, c: cols.data })] : null;
     if (dataCell) {
       if (dataCell.t === 'n') {
         const date = XLSX.SSF.parse_date_code(dataCell.v);
         const fullYear = date.y < 100 ? 2000 + date.y : date.y;
         dataEmissao = `${String(date.d).padStart(2, '0')}/${String(date.m).padStart(2, '0')}/${fullYear}`;
       } else {
-        const raw = String(dataCell.v);
-        const parts = raw.split('/');
-        if (parts.length === 3 && parts[2].length === 2) {
-          dataEmissao = `${parts[0]}/${parts[1]}/20${parts[2]}`;
-        } else {
-          dataEmissao = raw;
-        }
+        dataEmissao = String(dataCell.v);
       }
     }
 
     let valor = 0;
+    const valorCell = cols.valor >= 0 ? sheet[XLSX.utils.encode_cell({ r: row, c: cols.valor })] : null;
     if (valorCell) {
       if (typeof valorCell.v === 'number') {
         valor = valorCell.v;
@@ -82,12 +68,90 @@ export function parseExcelFile(data: ArrayBuffer): Pedido[] {
 
     pedidos.push({
       documento,
-      cliente: clienteCell ? String(clienteCell.v).trim() : '',
-      cidade: cidadeCell ? String(cidadeCell.v).trim() : '',
+      cliente: cols.cliente >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.cliente })]?.v || '').trim() : '',
+      cidade: cols.cidade >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.cidade })]?.v || '').trim() : '',
       dataEmissao,
       valor,
       codStatus: codStatusVal,
-      status: statusCell ? String(statusCell.v).trim() : '',
+      status: cols.status >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.status })]?.v || '').trim() : '',
+    });
+  }
+
+  return pedidos;
+}
+
+export function parseAllOrders(data: ArrayBuffer): Pedido[] {
+  const workbook = XLSX.read(data, { type: 'array' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  
+  const pedidos: Pedido[] = [];
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+  
+  // Dynamic header mapping
+  let headerRow = -1;
+  let cols: Record<string, number> = { doc: -1, cliente: -1, cidade: -1, data: -1, valor: -1, codStatus: -1, status: -1 };
+  
+  for (let row = 0; row <= Math.min(range.e.r, 50); row++) {
+    for (let col = 0; col <= Math.min(range.e.c, 20); col++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: col })];
+      if (cell && cell.v) {
+        const val = String(cell.v).trim().toLowerCase();
+        if (val === 'docto' || val === 'documento' || val === 'pedido') cols.doc = col;
+        else if (val.includes('cliente') || val.includes('razao') || val.includes('razão')) cols.cliente = col;
+        else if (val.includes('cidade') || val.includes('munic')) cols.cidade = col;
+        else if (val.includes('emiss') || val.includes('emissao') || val.includes('emissão')) cols.data = col;
+        else if (val === 'valor' || val.includes('total')) cols.valor = col;
+        else if (val.includes('cod.status') || val.includes('cod status')) cols.codStatus = col;
+        else if (val === 'status') cols.status = col;
+      }
+    }
+    if (cols.doc >= 0) {
+      headerRow = row;
+      break;
+    }
+  }
+  
+  if (headerRow < 0) return pedidos;
+
+  for (let row = headerRow + 1; row <= range.e.r; row++) {
+    const docCell = sheet[XLSX.utils.encode_cell({ r: row, c: cols.doc })];
+    if (!docCell || !docCell.v) continue;
+    
+    const documento = String(docCell.v).trim();
+    if (!documento || documento.toLowerCase().startsWith('docto')) continue;
+
+    const codStatusVal = cols.codStatus >= 0 ? (Number(sheet[XLSX.utils.encode_cell({ r: row, c: cols.codStatus })]?.v) || 0) : 0;
+
+    let dataEmissao = '';
+    const dataCell = cols.data >= 0 ? sheet[XLSX.utils.encode_cell({ r: row, c: cols.data })] : null;
+    if (dataCell) {
+      if (dataCell.t === 'n') {
+        const date = XLSX.SSF.parse_date_code(dataCell.v);
+        const fullYear = date.y < 100 ? 2000 + date.y : date.y;
+        dataEmissao = `${String(date.d).padStart(2, '0')}/${String(date.m).padStart(2, '0')}/${fullYear}`;
+      } else {
+        dataEmissao = String(dataCell.v);
+      }
+    }
+
+    let valor = 0;
+    const valorCell = cols.valor >= 0 ? sheet[XLSX.utils.encode_cell({ r: row, c: cols.valor })] : null;
+    if (valorCell) {
+      if (typeof valorCell.v === 'number') {
+        valor = valorCell.v;
+      } else {
+        valor = parseFloat(String(valorCell.v).replace(/\./g, '').replace(',', '.')) || 0;
+      }
+    }
+
+    pedidos.push({
+      documento,
+      cliente: cols.cliente >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.cliente })]?.v || '').trim() : '',
+      cidade: cols.cidade >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.cidade })]?.v || '').trim() : '',
+      dataEmissao,
+      valor,
+      codStatus: codStatusVal,
+      status: cols.status >= 0 ? String(sheet[XLSX.utils.encode_cell({ r: row, c: cols.status })]?.v || '').trim() : '',
     });
   }
 

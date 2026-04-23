@@ -305,18 +305,24 @@ const Index = () => {
                 {monthNames[month - 1]} {year} — Painel Gerencial
               </p>
             </div>
-            <nav className="flex items-center gap-2 pl-6 border-l border-border">
+            <nav className="flex items-center gap-4 pl-6 border-l border-border text-xs">
               <Link 
                 to="/" 
-                className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                className="font-medium text-foreground hover:text-primary transition-colors"
               >
                 Faturamento
               </Link>
               <Link 
                 to="/orcamento" 
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                className="font-medium text-muted-foreground hover:text-primary transition-colors"
               >
                 Orçamentos
+              </Link>
+              <Link 
+                to="/analisedepedidos" 
+                className="font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                Análise
               </Link>
             </nav>
           </div>

@@ -11,12 +11,22 @@ interface OrcamentoTableProps {
   onNoSistemaToggle?: (documento: string, noSistema: boolean) => void;
   onAnalisadoToggle?: (documento: string, analisado: boolean) => void;
   onMotivoPerdaUpdate?: (documento: string, motivoPerda: string) => boolean | void;
+  onDonoUpdate?: (documento: string, dono: string) => void;
 }
 
-type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido';
+type SortField = 'documento' | 'cliente' | 'valor' | 'dataEmissao' | 'virou_pedido' | 'dono';
 type SortOrder = 'asc' | 'desc';
 
-export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdate, onCodClienteUpdate, onNoSistemaToggle, onAnalisadoToggle, onMotivoPerdaUpdate }: OrcamentoTableProps) {
+export function OrcamentoTable({ 
+  orcamentos, 
+  pedidosDocumentos, 
+  onOrcamentoUpdate, 
+  onCodClienteUpdate, 
+  onNoSistemaToggle, 
+  onAnalisadoToggle, 
+  onMotivoPerdaUpdate,
+  onDonoUpdate
+}: OrcamentoTableProps) {
   const [sortField, setSortField] = useState<SortField>('dataEmissao');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<'todos' | 'convertidos' | 'nao_convertidos'>('todos');
@@ -26,6 +36,8 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
   const [editingCodValue, setEditingCodValue] = useState('');
   const [editingMotivoDoc, setEditingMotivoDoc] = useState<string | null>(null);
   const [editingMotivoValue, setEditingMotivoValue] = useState('');
+  const [editingDonoDoc, setEditingDonoDoc] = useState<string | null>(null);
+  const [editingDonoValue, setEditingDonoValue] = useState('');
 
   const pedidoSet = new Set(pedidosDocumentos);
   const orcamentosComStatus = orcamentos.map(o => {
@@ -120,6 +132,21 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
     }
   };
 
+  const handleDonoStart = (documento: string, current: string) => {
+    setEditingDonoDoc(documento);
+    setEditingDonoValue(current || '');
+  };
+
+  const handleDonoSave = (documento: string) => {
+    if (onDonoUpdate) onDonoUpdate(documento, editingDonoValue);
+    setEditingDonoDoc(null);
+  };
+
+  const handleDonoCancel = () => {
+    setEditingDonoDoc(null);
+    setEditingDonoValue('');
+  };
+
   const totalOrcamentos = orcamentosComStatus.reduce((s, o) => s + o.valor, 0);
   const totalNaoConvertidos = orcamentosComStatus.filter(o => !o.convertido).reduce((s, o) => s + o.valor, 0);
   const totalConvertidos = orcamentosComStatus.filter(o => o.convertido).reduce((s, o) => s + o.valor, 0);
@@ -197,6 +224,14 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
               </th>
               <th 
                 className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('dono')}
+              >
+                <div className="flex items-center gap-2">
+                  Dono <SortIcon field="dono" />
+                </div>
+              </th>
+              <th 
+                className="px-4 py-2 text-left cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('dataEmissao')}
               >
                 <div className="flex items-center gap-2">
@@ -225,7 +260,11 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
             {sorted.map((orcamento) => (
               <tr 
                 key={orcamento.documento} 
-                className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                className={`border-b border-gray-200 transition-colors ${
+                  !orcamento.dono 
+                    ? 'bg-yellow-50 hover:bg-yellow-100 text-slate-900 font-medium border-yellow-200' 
+                    : 'hover:bg-gray-50'
+                }`}
               >
                 <td className="px-4 py-2 font-medium text-blue-600">{orcamento.documento}</td>
                 <td className="px-4 py-2 text-center">
@@ -322,6 +361,38 @@ export function OrcamentoTable({ orcamentos, pedidosDocumentos, onOrcamentoUpdat
                   )}
                 </td>
                 <td className="px-4 py-2">{orcamento.cliente}</td>
+                <td className="px-4 py-2">
+                  {editingDonoDoc === orcamento.documento ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="Nome do dono"
+                        value={editingDonoValue}
+                        onChange={(e) => setEditingDonoValue(e.target.value)}
+                        onKeyDown={(e) => { 
+                          if (e.key === 'Enter') handleDonoSave(orcamento.documento); 
+                          if (e.key === 'Escape') handleDonoCancel(); 
+                        }}
+                        className="w-32 px-2 py-1 text-xs border rounded shadow-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                        autoFocus
+                      />
+                      <button onClick={() => handleDonoSave(orcamento.documento)} className="text-green-600 hover:text-green-800 font-bold" title="Salvar">✓</button>
+                      <button onClick={handleDonoCancel} className="text-red-600 hover:text-red-800 font-bold" title="Cancelar">✕</button>
+                    </div>
+                  ) : (
+                    <span
+                      onClick={() => handleDonoStart(orcamento.documento, orcamento.dono || '')}
+                      className={`cursor-pointer px-2 py-1 rounded text-xs transition-colors ${
+                        orcamento.dono 
+                          ? 'hover:bg-gray-100 text-gray-700' 
+                          : 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300 font-semibold'
+                      }`}
+                      title="Clique para editar dono do orçamento"
+                    >
+                      {orcamento.dono || 'Sem Dono'}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-gray-600">{orcamento.dataEmissao}</td>
                 <td className="px-4 py-2 text-right font-medium">{formatCurrency(orcamento.valor)}</td>
                 <td className="px-4 py-2 text-center">

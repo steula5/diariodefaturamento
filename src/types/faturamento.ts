@@ -46,6 +46,7 @@ export interface Orcamento {
   virou_pedido?: string; // número do pedido if converted, undefined if not
   analisado?: boolean; // indica se o orçamento já foi analisado (checkbox manual)
   motivo_perda?: string; // motivo obrigatório quando o orçamento for marcado como perdido
+  dono?: string; // dono do orçamento
 }
 
 export interface OrcamentoDia {
@@ -63,4 +64,17 @@ export interface OrcamentoData {
   ordenacaoOrcamentos?: string[]; // custom order for all orcamentos (documento IDs)
   totalFaturado?: number; // total billed in the period (manually entered)
   totalPedidosConcretizados?: number; // total of concretized orders (manually entered)
+}
+
+// Order Analysis types
+export interface OrderSnapshot {
+  date: string; // YYYY-MM-DD
+  orders: Pedido[];
+  timestamp: number;
+}
+
+export interface OrderAnalysisData {
+  snapshots: Record<string, OrderSnapshot>;
+  referenceSnapshot?: OrderSnapshot;
+  exclusionNotes: Record<string, string>; // key: documento (non-OR)
 }

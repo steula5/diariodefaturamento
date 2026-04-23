@@ -104,6 +104,7 @@ export function mergeOrcamentos(existing: Orcamento[], newOrcamentos: Orcamento[
       virou_pedido: current?.virou_pedido,
       analisado: current?.analisado,
       motivo_perda: current?.motivo_perda,
+      dono: current?.dono,
     }));
   });
   
