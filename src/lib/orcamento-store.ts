@@ -30,16 +30,32 @@ export function formatCurrency(value: number): string {
 }
 
 export function calculateDaysInPortfolio(dataEmissao: string): number {
-  // Parse dataEmissao in DD/MM/YYYY format
-  const [day, month, year] = dataEmissao.split('/').map(Number);
-  const emissionDate = new Date(year, month - 1, day);
+  if (!dataEmissao) return 0;
+
+  let day: number, month: number, year: number;
+
+  if (dataEmissao.includes('/')) {
+    [day, month, year] = dataEmissao.split('/').map(Number);
+  } else if (dataEmissao.includes('-')) {
+    [year, month, day] = dataEmissao.split('-').map(Number);
+  } else {
+    const d = new Date(dataEmissao);
+    if (isNaN(d.getTime())) return 0;
+    day = d.getDate();
+    month = d.getMonth() + 1;
+    year = d.getFullYear();
+  }
+
+  // Handle 2-digit years (e.g., 24 -> 2024)
+  const fullYear = year < 100 ? year + 2000 : year;
+  const emissionDate = new Date(fullYear, month - 1, day);
+  
   const today = new Date();
+  // Strip time from today for accurate day difference
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   
-  // Calculate the difference in milliseconds and convert to days
-  const differenceMs = today.getTime() - emissionDate.getTime();
-  const differenceDays = Math.floor(differenceMs / (1000 * 60 * 60 * 24));
-  
-  return differenceDays;
+  const differenceMs = todayDate.getTime() - emissionDate.getTime();
+  return Math.floor(differenceMs / (1000 * 60 * 60 * 24));
 }
 
 function normalizeMotivoPerda(motivo?: string): string | undefined {
