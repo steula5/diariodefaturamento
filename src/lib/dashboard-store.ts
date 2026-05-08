@@ -357,13 +357,28 @@ function setTab(tab){
   document.getElementById('tab-mensal').className='tab-btn'+(tab==='mensal'?' tab-active':'');
   if(tab==='mensal') renderMonthlyChart(); else renderDailySalesChart();
 }
+
+function selectMonth(y, m){
+  chartYear=y;
+  chartMonth=m;
+  calendarYear=y;
+  calendarMonth=m;
+  selectedDay=getLastFatDayWithValue(y, m);
+  updateMonthCards();
+  renderCalendar();
+  renderDailySalesChart();
+  var tabDiarioBtn=document.getElementById('tab-diario');
+  if(tabDiarioBtn && !tabDiarioBtn.className.includes('tab-active')){
+    setTab('diario');
+  }
+}
+
 function changeChartMonth(dir){
   var idx=-1;
   for(var i=0;i<availableMonths.length;i++){if(availableMonths[i].y===chartYear&&availableMonths[i].m===chartMonth){idx=i;break;}}
   var ni=idx+dir;
   if(ni<0||ni>=availableMonths.length) return;
-  chartYear=availableMonths[ni].y;chartMonth=availableMonths[ni].m;
-  renderDailySalesChart();
+  selectMonth(availableMonths[ni].y, availableMonths[ni].m);
 }
 
 function changeCalendarMonth(dir){
@@ -373,11 +388,7 @@ function changeCalendarMonth(dir){
   }
   var ni=idx+dir;
   if(ni<0||ni>=availableMonths.length) return;
-  calendarYear=availableMonths[ni].y;
-  calendarMonth=availableMonths[ni].m;
-  selectedDay=getLastFatDayWithValue(calendarYear,calendarMonth);
-  updateMonthCards();
-  renderCalendar();
+  selectMonth(availableMonths[ni].y, availableMonths[ni].m);
 }
 
 function getMonthKey(year,month){
@@ -715,7 +726,7 @@ points.forEach(function(p,i){
   var x=xAt(i);
   var x1=i===0?left:(xAt(i-1)+x)/2;
   var x2=i===points.length-1?(w-right):(x+xAt(i+1))/2;
-  hitZones+='<rect x="'+x1+'" y="'+top+'" width="'+(x2-x1)+'" height="'+chartH+'" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,tipLabels['+i+'])" onmouseout="hideTip()" />';
+  hitZones+='<rect x="'+x1+'" y="'+top+'" width="'+(x2-x1)+'" height="'+chartH+'" fill="transparent" style="cursor:crosshair" onmouseover="showTip(event,tipLabels['+i+'])" onmouseout="hideTip()" onclick="selectDay('+p.day+','+p.value+')" />';
   if(p.value>0) hitZones+='<circle cx="'+x+'" cy="'+yAt(p.value)+'" r="3.5" class="chart-dot" style="pointer-events:none" />';
   xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" class="chart-label">'+p.day+'</text>';
 });
@@ -774,7 +785,7 @@ function renderMonthlyChart(){
     var color=isCur?'#2563eb':'#93c5fd';
     var parts=k.split('-');
     var lbl=MONTH_NAMES[+parts[1]-1].substring(0,3)+'/'+parts[0].substring(2);
-    bars+='<rect x="'+(x-barW/2)+'" y="'+y+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+color+'" opacity="0.9" onmouseover="showTip(event,monthTipLabels['+i+'])" onmouseout="hideTip()" style="cursor:pointer" />';
+    bars+='<rect x="'+(x-barW/2)+'" y="'+y+'" width="'+barW+'" height="'+bh+'" rx="4" fill="'+color+'" opacity="0.9" onmouseover="showTip(event,monthTipLabels['+i+'])" onmouseout="hideTip()" onclick="selectMonth('+parts[0]+','+parts[1]+')" style="cursor:pointer" />';
     xLabels+='<text x="'+x+'" y="'+(h-6)+'" text-anchor="middle" style="font-size:9px;fill:'+(isCur?'#2563eb':'#64748b')+';font-weight:'+(isCur?'700':'400')+'">'+lbl+'</text>';
     if(val>0) valLabels+='<text x="'+x+'" y="'+(y-4)+'" text-anchor="middle" style="font-size:9px;fill:#334155">'+fmtScale(val)+'</text>';
   });
