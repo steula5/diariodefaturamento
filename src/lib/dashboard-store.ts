@@ -307,13 +307,10 @@ var LAST_FAT_DATE='${lastFatDateWithValue}';
 var REPORT_META=${data.meta};
 var fmt=function(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v)};
 var fmtScale=function(v){
-  var inThousands=Math.round(v/1000);
-  if(inThousands<1000) return inThousands+'K';
+  var inThousands=v/1000;
+  if(inThousands<1000){var t=(Math.round(inThousands*1000)/1000).toFixed(3).replace('.',',');return t+'K';}
   var inMillions=inThousands/1000;
-  var rounded=Math.round(inMillions*10)/10;
-  var text=String(rounded);
-  if(text.endsWith('.0')) text=text.slice(0,-2);
-  return text+'M';
+  var t=(Math.round(inMillions*1000)/1000).toFixed(3).replace('.',',');return t+'M';
 };
 var WEEKDAYS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 var selectedDay=(function(){
